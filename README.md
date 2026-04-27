@@ -206,7 +206,7 @@ A dependency in the graph contains a `.binaryTarget` declaration (XCFramework).
 Run a full dependency graph audit on the current package.
 
 ```sh
-avie audit [--path <path>] [--format <format>] [--ci] [--no-color] [--no-fail]
+avie audit [--path <path>] [--format <format>] [--ci] [--skip-binary-detection] [--no-color] [--no-fail]
 ```
 
 | Flag | Description |
@@ -214,6 +214,7 @@ avie audit [--path <path>] [--format <format>] [--ci] [--no-color] [--no-fail]
 | `--path <path>` | Package directory (default: `.`) |
 | `--format <format>` | `terminal` (default), `json`, or `sarif` |
 | `--ci` | Append `--disable-automatic-resolution` to SPM calls (prevents network access in CI) |
+| `--skip-binary-detection` | **Fast Mode**. Bypass binary target manifest inspection on large repositories |
 | `--no-color` | Disable ANSI color output |
 | `--no-fail` | Exit 0 even if error-severity findings are present |
 
@@ -233,7 +234,7 @@ avie audit [--path <path>] [--format <format>] [--ci] [--no-color] [--no-fail]
 Capture the current dependency graph state as a JSON file for later diff comparison.
 
 ```sh
-avie snapshot [--path <path>] [--output <file>] [--git-ref <ref>] [--ci]
+avie snapshot [--path <path>] [--output <file>] [--git-ref <ref>] [--ci] [--skip-binary-detection]
 ```
 
 | Option | Description |
@@ -242,6 +243,7 @@ avie snapshot [--path <path>] [--output <file>] [--git-ref <ref>] [--ci]
 | `--output <file>` | Output path (default: `avie-snapshot.json`) |
 | `--git-ref <ref>` | Git branch/SHA label for CI traceability |
 | `--ci` | Disable automatic dependency resolution |
+| `--skip-binary-detection` | **Fast Mode**. Bypass binary target manifest inspection on large repositories |
 
 Snapshots include the full package graph, all audit findings, and the avie version that generated them.
 
