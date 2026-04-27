@@ -38,7 +38,7 @@ let package = Package(
             )
         ),
         .testTarget(name: "AvieCoreTests", dependencies: ["AvieCore"]),
-        .testTarget(name: "AvieResolverTests", dependencies: ["AvieResolver"]),
+        .testTarget(name: "AvieResolverTests", dependencies: ["AvieResolver"], exclude: ["Fixtures"]),
         .testTarget(name: "AvieGraphTests", dependencies: ["AvieGraph"]),
         .testTarget(name: "AvieRulesTests", dependencies: ["AvieRules", "AvieGraph"]),
         .testTarget(name: "AvieDiffTests", dependencies: ["AvieDiff"]),

@@ -172,4 +172,67 @@ final class AvieDiffTests: XCTestCase {
         let results = runs?.first?["results"] as? [[String: Any]]
         XCTAssertEqual(results?.count, 2)
     }
+
+    func testSnapshotDiffPipelineEndToEnd() throws {
+        // Simulates: avie snapshot (base) → add dep → avie snapshot (head) → avie diff
+        // Validates the full data flow: GraphSnapshot → DiffEngine → DiffResult
+
+        let swiftAlgorithms = PackageIdentity("swift-algorithms")
+        let heavyFramework = PackageIdentity("heavy-framework")
+
+        // Build base snapshot
+        let baseRoot = makePackage(rootID, isRoot: true, deps: [swiftAlgorithms])
+        let baseAlgorithms = makePackage(swiftAlgorithms)
+        let baseSnapshot = GraphSnapshot(
+            packages: [rootID: baseRoot, swiftAlgorithms: baseAlgorithms],
+            rootIdentity: rootID,
+            findings: [], gitRef: nil, avieVersion: "1.0"
+        )
+
+        // Build head snapshot
+        let headRoot = makePackage(rootID, isRoot: true, deps: [swiftAlgorithms, heavyFramework])
+        
+        var headPackages: [PackageIdentity: ResolvedPackage] = [
+            rootID: headRoot,
+            swiftAlgorithms: baseAlgorithms
+        ]
+        
+        var heavyDeps: [PackageIdentity] = []
+        for i in 1...12 {
+            let transitiveID = PackageIdentity("transitive-\(i)")
+            heavyDeps.append(transitiveID)
+            headPackages[transitiveID] = makePackage(transitiveID)
+        }
+        
+        headPackages[heavyFramework] = makePackage(heavyFramework, deps: heavyDeps)
+        
+        let finding = Finding(
+            ruleID: .excessiveFanout,
+            severity: .warning,
+            confidence: .proven,
+            summary: "heavy-framework pulls in 12 transitive dependencies",
+            detail: "This exceeds the configured threshold.",
+            graphPath: [rootID, heavyFramework],
+            suggestedAction: "Evaluate if this dependency is worth the weight.",
+            affectedPackage: heavyFramework
+        )
+        
+        let headSnapshot = GraphSnapshot(
+            packages: headPackages,
+            rootIdentity: rootID,
+            findings: [finding],
+            gitRef: nil, avieVersion: "1.0"
+        )
+
+        let diff = DiffEngine().diff(base: baseSnapshot, head: headSnapshot)
+
+        // Asserts
+        XCTAssertTrue(diff.addedPackages.contains(where: { $0.id == heavyFramework }))
+        XCTAssertEqual(diff.newFindings.count, 1)
+        XCTAssertEqual(diff.newFindings.first?.ruleID, .excessiveFanout)
+        XCTAssertEqual(diff.newFindings.first?.affectedPackage, heavyFramework)
+        XCTAssertEqual(diff.packageCountDelta, 13) // heavy-framework + 12 transitives
+        XCTAssertFalse(diff.hasBlockingIssues)
+        XCTAssertTrue(diff.resolvedFindings.isEmpty)
+    }
 }
