@@ -1,0 +1,52 @@
+name: Avie Dependency Audit
+
+on:
+  pull_request:
+    paths:
+      - 'Package.swift'
+      - 'Package.resolved'
+
+jobs:
+  avie-audit:
+    runs-on: macos-latest
+    permissions:
+      security-events: write  # Required for SARIF upload
+      pull-requests: read
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Avie
+        run: brew install yourtap/tap/avie
+
+      # Capture base branch snapshot
+      - name: Snapshot base branch
+        run: |
+          git checkout ${{ github.base_ref }}
+          avie snapshot --output base-snapshot.json --git-ref ${{ github.base_ref }} --ci
+
+      # Capture PR branch snapshot
+      - name: Snapshot PR branch
+        run: |
+          git checkout ${{ github.head_ref }}
+          avie snapshot --output head-snapshot.json --git-ref ${{ github.head_ref }} --ci
+
+      # Run diff and emit SARIF
+      - name: Run Avie Diff
+        run: |
+          avie diff \
+            --base base-snapshot.json \
+            --head head-snapshot.json \
+            --format sarif > avie-results.sarif
+
+      # Upload SARIF for inline PR annotations
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: avie-results.sarif
+          category: avie-dependency-audit
+
+      # Also run full audit for terminal output in logs
+      - name: Full Audit (for logs)
+        run: avie audit --ci --format terminal
