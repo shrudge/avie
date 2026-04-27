@@ -12,7 +12,8 @@ import AvieDiff
 public struct SARIFFormatter: OutputFormatter {
     public init() {}
 
-    public func format(_ findings: [Finding]) throws -> String {
+    public func format(result: RuleEngine.AnalysisResult) throws -> String {
+        let findings = result.findings
         let results = findings.map { finding -> [String: Any] in
             let level: String
             switch finding.severity {
