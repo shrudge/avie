@@ -79,8 +79,9 @@ struct AuditCommand: ParsableCommand {
 
         let targets = manifestData.map { buildTargets(from: $0, rootIdentity: graph.rootIdentity) }
 
-        let engine = RuleEngine(graph: graph, config: config, targets: targets)
-        let allFindings = try engine.execute()
+        let analysisResult = try engine.execute()
+        // TODO: Update formatters to ingest the full analysisResult instead of just findings
+        let allFindings = analysisResult.findings
 
         let suppressionFile = (try? SuppressionFile.load(from: packageURL)) ?? SuppressionFile()
         let filteredFindings = applySuppression(allFindings, suppressions: suppressionFile)

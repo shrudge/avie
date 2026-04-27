@@ -18,11 +18,23 @@ public struct RuleEngine {
         self.targets = targets
     }
 
-    public func execute() throws -> [Finding] {
+    public struct AnalysisResult {
+        public let findings: [Finding]
+        public let graph: DependencyGraph
+        public let metadata: Metadata
+
+        public struct Metadata: Codable {
+            public let totalPackages: Int
+            public let directDependencies: Int
+            public let transitiveDepth: Int
+        }
+    }
+
+    public func execute() throws -> AnalysisResult {
         let context = RuleContext(
             configuration: config,
             targets: targets,
-            suppressions: [] // Suppressions handled at output layer
+            suppressions: [] 
         )
 
         var allFindings: [Finding] = []
@@ -33,7 +45,18 @@ public struct RuleEngine {
             allFindings.append(contentsOf: findings)
         }
 
-        return allFindings
+        let depth = traversal.maximumDepth(from: graph.rootIdentity)
+        let directDeps = (graph.adjacency[graph.rootIdentity] ?? []).count
+
+        return AnalysisResult(
+            findings: allFindings,
+            graph: graph,
+            metadata: AnalysisResult.Metadata(
+                totalPackages: graph.packages.count,
+                directDependencies: directDeps,
+                transitiveDepth: depth
+            )
+        )
     }
 
     private func instantiateRules(from ids: [RuleID]) -> [Rule] {
