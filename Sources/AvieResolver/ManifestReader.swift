@@ -11,7 +11,6 @@ public final class ManifestReader {
     public struct ManifestData: Codable {
         public let name: String
         public let targets: [ManifestTarget]
-        public let dependencies: [ManifestDependency]
     }
 
     public struct ManifestTarget: Codable {
@@ -50,12 +49,7 @@ public final class ManifestReader {
         }
     }
 
-    public struct ManifestDependency: Codable {
-        public let identity: String
-        public let type: String
-        public let url: String?
-        public let path: String?
-    }
+
 
     public func read() throws -> ManifestData {
         let process = Process()

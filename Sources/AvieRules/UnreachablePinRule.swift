@@ -14,7 +14,20 @@ public struct UnreachablePinRule: Rule {
         traversal: GraphTraversal,
         context: RuleContext
     ) throws -> [Finding] {
-        let reachable = traversal.reachablePackages(from: graph.rootIdentity)
+        guard let targets = context.targets else { return [] }
+
+        var targetDeps = Set<PackageIdentity>()
+        for target in targets {
+            targetDeps.formUnion(target.packageDependencies)
+        }
+
+        var reachable = Set<PackageIdentity>()
+        reachable.insert(graph.rootIdentity)
+        for dep in targetDeps {
+            reachable.insert(dep)
+            reachable.formUnion(traversal.reachablePackages(from: dep))
+        }
+
         var findings: [Finding] = []
 
         for packageID in graph.packages.keys where !reachable.contains(packageID) {
