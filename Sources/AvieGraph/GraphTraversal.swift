@@ -3,13 +3,19 @@ import AvieCore
 public class GraphTraversal {
     public let graph: DependencyGraph
     private var reachableCache: [PackageIdentity: Set<PackageIdentity>] = [:]
+    private let cacheLock = NSLock()
 
     public init(graph: DependencyGraph) {
         self.graph = graph
     }
 
     public func reachablePackages(from start: PackageIdentity) -> Set<PackageIdentity> {
-        if let cached = reachableCache[start] { return cached }
+        cacheLock.lock()
+        if let cached = reachableCache[start] { 
+            cacheLock.unlock()
+            return cached 
+        }
+        cacheLock.unlock()
         
         var visited = Set<PackageIdentity>()
         var queue = [start]
@@ -23,7 +29,10 @@ public class GraphTraversal {
             queue.append(contentsOf: neighbors.filter { !visited.contains($0) })
         }
 
+        cacheLock.lock()
         reachableCache[start] = visited
+        cacheLock.unlock()
+        
         return visited
     }
 
