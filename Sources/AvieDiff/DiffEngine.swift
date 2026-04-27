@@ -57,4 +57,83 @@ public final class DiffEngine {
         public let toVersion: String
         public let isUpgrade: Bool  // simple string comparison
     }
+
+    public init() {}
+
+    public func diff(base: GraphSnapshot, head: GraphSnapshot) -> DiffResult {
+        let baseIDs = Set(base.packages.keys)
+        let headIDs = Set(head.packages.keys)
+
+        let addedIDs = headIDs.subtracting(baseIDs)
+        let removedIDs = baseIDs.subtracting(headIDs)
+        let commonIDs = baseIDs.intersection(headIDs)
+
+        let addedPackages = addedIDs.compactMap { head.packages[$0] }
+        let removedPackages = removedIDs.compactMap { base.packages[$0] }
+
+        let versionChanges: [VersionChange] = commonIDs.compactMap { id in
+            guard let basePkg = base.packages[id],
+                  let headPkg = head.packages[id],
+                  basePkg.version != headPkg.version else { return nil }
+            return VersionChange(
+                package: id,
+                fromVersion: basePkg.version,
+                toVersion: headPkg.version,
+                isUpgrade: headPkg.version > basePkg.version
+            )
+        }
+
+        // New direct dependencies
+        let baseRootDeps = Set(base.packages[base.rootIdentity]?.directDependencies ?? [])
+        let headRootDeps = Set(head.packages[head.rootIdentity]?.directDependencies ?? [])
+        let newDirectDepIDs = headRootDeps.subtracting(baseRootDeps)
+        let newDirectDeps = newDirectDepIDs.compactMap { head.packages[$0] }
+
+        // Transitive fan-out for new direct deps
+        var fanout: [PackageIdentity: Int] = [:]
+        if let headGraph = try? DependencyGraph(packages: head.packages) {
+            let traversal = GraphTraversal(graph: headGraph)
+            for depID in newDirectDepIDs {
+                fanout[depID] = traversal.allTransitiveDependencies(of: depID).count
+            }
+        }
+
+        // New binary targets
+        let baseBinaryIDs = Set(base.packages.values.filter(\.containsBinaryTarget).map(\.id))
+        let headBinaryIDs = Set(head.packages.values.filter(\.containsBinaryTarget).map(\.id))
+        let newBinaryTargets = headBinaryIDs.subtracting(baseBinaryIDs)
+            .compactMap { head.packages[$0] }
+
+        // New/resolved findings
+        let baseFindingKeys = Set(base.findings.map { "\($0.ruleID.rawValue):\($0.affectedPackage.value)" })
+        let headFindingKeys = Set(head.findings.map { "\($0.ruleID.rawValue):\($0.affectedPackage.value)" })
+
+        let newFindings = head.findings.filter { finding in
+            !baseFindingKeys.contains("\(finding.ruleID.rawValue):\(finding.affectedPackage.value)")
+        }
+        let resolvedFindings = base.findings.filter { finding in
+            !headFindingKeys.contains("\(finding.ruleID.rawValue):\(finding.affectedPackage.value)")
+        }
+
+        // Depth delta
+        let baseDepth = (try? DependencyGraph(packages: base.packages)).map {
+            GraphTraversal(graph: $0).maximumDepth(from: base.rootIdentity)
+        } ?? 0
+        let headDepth = (try? DependencyGraph(packages: head.packages)).map {
+            GraphTraversal(graph: $0).maximumDepth(from: head.rootIdentity)
+        } ?? 0
+
+        return DiffResult(
+            addedPackages: addedPackages.sorted { $0.name < $1.name },
+            removedPackages: removedPackages.sorted { $0.name < $1.name },
+            versionChanges: versionChanges,
+            newDirectDependencies: newDirectDeps,
+            transitiveFanoutByNewDep: fanout,
+            newBinaryTargets: newBinaryTargets,
+            newFindings: newFindings,
+            resolvedFindings: resolvedFindings,
+            depthDelta: headDepth - baseDepth,
+            packageCountDelta: head.packages.count - base.packages.count
+        )
+    }
 }
