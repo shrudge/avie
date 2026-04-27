@@ -41,13 +41,24 @@ public struct TestLeakageRule: Rule {
 
         for testPkg in strictlyTestPackages {
             if prodReachable.contains(testPkg) {
+                var actualPath: [PackageIdentity] = []
+                for prodTarget in targets where prodTarget.isProduction {
+                    for dep in prodTarget.packageDependencies {
+                        if let subPath = traversal.shortestPath(from: dep, to: testPkg) {
+                            actualPath = [graph.rootIdentity] + subPath
+                            break
+                        }
+                    }
+                    if !actualPath.isEmpty { break }
+                }
+
                 findings.append(Finding(
                     ruleID: id,
                     severity: severity,
                     confidence: .proven,
                     summary: "Test dependency '\(testPkg)' leaked into production graph.",
                     detail: "This package is only directly depended on by a test target, but is transitively reachable from a production target.",
-                    graphPath: [graph.rootIdentity, testPkg], // Simplified path for now
+                    graphPath: actualPath.isEmpty ? [graph.rootIdentity, testPkg] : actualPath,
                     suggestedAction: "Check production dependencies. You may be importing a test library in production code.",
                     affectedPackage: testPkg
                 ))
