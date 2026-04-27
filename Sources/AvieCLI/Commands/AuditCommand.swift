@@ -65,7 +65,7 @@ struct AuditCommand: ParsableCommand {
             throw ExitCode(2)
         }
 
-        let manifestReader = ManifestReader(packageDirectory: packageURL)
+        let manifestReader = ManifestReader(packageDirectory: packageURL, isCI: ci)
         let manifestData = try? manifestReader.read()
 
         // Exit 3 — configuration error

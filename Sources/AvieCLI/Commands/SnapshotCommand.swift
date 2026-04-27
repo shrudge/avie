@@ -44,7 +44,7 @@ struct SnapshotCommand: ParsableCommand {
         let packages = DependencyTransformer().transform(spmOutput, binaryTargetIDs: binaryTargetIDs)
 
         // 3. Optional Manifest for richer analysis
-        let manifestReader = ManifestReader(packageDirectory: packageURL)
+        let manifestReader = ManifestReader(packageDirectory: packageURL, isCI: ci)
         let manifestData = try? manifestReader.read()
 
         // 4. Build graph

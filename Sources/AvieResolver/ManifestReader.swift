@@ -16,11 +16,12 @@ import AvieCore
 ///
 /// The previous model used struct keys that only matched one variant.
 /// The new model handles all three variants via custom Codable decoding.
-public final class ManifestReader {
     private let packageDirectory: URL
+    private let isCI: Bool
 
-    public init(packageDirectory: URL) {
+    public init(packageDirectory: URL, isCI: Bool = false) {
         self.packageDirectory = packageDirectory
+        self.isCI = isCI
     }
 
     public struct ManifestData: Codable {
@@ -107,7 +108,11 @@ public final class ManifestReader {
         let process = Process()
         // Bug 6 Fix: resolve swift from PATH
         process.executableURL = URL(fileURLWithPath: SwiftToolFinder.path)
-        process.arguments = ["package", "dump-package"]
+        var arguments = ["package", "dump-package"]
+        if isCI {
+            arguments.append("--disable-automatic-resolution")
+        }
+        process.arguments = arguments
         process.currentDirectoryURL = packageDirectory
 
         let stdout = Pipe()
