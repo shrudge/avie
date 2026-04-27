@@ -1,13 +1,16 @@
 import AvieCore
 
-public struct GraphTraversal {
+public class GraphTraversal {
     public let graph: DependencyGraph
+    private var reachableCache: [PackageIdentity: Set<PackageIdentity>] = [:]
 
     public init(graph: DependencyGraph) {
         self.graph = graph
     }
 
     public func reachablePackages(from start: PackageIdentity) -> Set<PackageIdentity> {
+        if let cached = reachableCache[start] { return cached }
+        
         var visited = Set<PackageIdentity>()
         var queue = [start]
 
@@ -20,6 +23,7 @@ public struct GraphTraversal {
             queue.append(contentsOf: neighbors.filter { !visited.contains($0) })
         }
 
+        reachableCache[start] = visited
         return visited
     }
 
