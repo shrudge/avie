@@ -1,1 +1,6 @@
-AVIE_ARCHITECTURE.md
+.build/
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+DerivedData/
+.DS_Store

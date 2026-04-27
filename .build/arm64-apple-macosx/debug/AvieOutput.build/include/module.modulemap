@@ -1,3 +1,0 @@
-module AvieOutput {
-    header "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutput.build/include/AvieOutput-Swift.h"
-}

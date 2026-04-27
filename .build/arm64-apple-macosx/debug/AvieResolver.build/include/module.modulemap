@@ -1,3 +1,0 @@
-module AvieResolver {
-    header "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieResolver.build/include/AvieResolver-Swift.h"
-}
