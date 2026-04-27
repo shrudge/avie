@@ -1,5 +1,6 @@
 import Foundation
 import AvieCore
+import AvieDiff
 
 public struct SARIFFormatter: OutputFormatter {
     public init() {}
@@ -42,5 +43,9 @@ public struct SARIFFormatter: OutputFormatter {
         
         let data = try JSONSerialization.data(withJSONObject: sarif, options: [.prettyPrinted, .sortedKeys])
         return String(data: data, encoding: .utf8) ?? "{}"
+    }
+
+    public func format(diff: DiffEngine.DiffResult) throws -> String {
+        return try format(diff.newFindings)
     }
 }

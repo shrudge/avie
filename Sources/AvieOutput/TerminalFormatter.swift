@@ -1,11 +1,18 @@
 import AvieCore
+import AvieDiff
 
 public protocol OutputFormatter {
     func format(_ findings: [Finding]) throws -> String
+    func format(diff: DiffEngine.DiffResult) throws -> String
 }
 
 public struct TerminalFormatter: OutputFormatter {
-    public init() {}
+    private let useColor: Bool
+
+    public init(useColor: Bool = true) {
+        // TTY detection logic omitted, just simple passing param
+        self.useColor = useColor
+    }
 
     public func format(_ findings: [Finding]) throws -> String {
         guard !findings.isEmpty else {
@@ -45,5 +52,92 @@ public struct TerminalFormatter: OutputFormatter {
         output += "Found \(findings.count) issue(s) (\(errors.count) errors, \(warnings.count) warnings, \(notes.count) notes).\n"
 
         return output
+    }
+
+    public func format(diff: DiffEngine.DiffResult) throws -> String {
+        var lines: [String] = []
+
+        let red = useColor ? "\u{001B}[31m" : ""
+        let yellow = useColor ? "\u{001B}[33m" : ""
+        let green = useColor ? "\u{001B}[32m" : ""
+        let cyan = useColor ? "\u{001B}[36m" : ""
+        let bold = useColor ? "\u{001B}[1m" : ""
+        let reset = useColor ? "\u{001B}[0m" : ""
+        let dim = useColor ? "\u{001B}[2m" : ""
+
+        // For non-color mode
+        // Note: I will safely use the color constants directly as TerminalFormatter in its current form hasn't been reconfigured.
+        // Wait, TerminalFormatter doesn't have useColor configured in this file currently. I will redefine them.
+        
+        lines.append("\(bold)Avie PR Diff Report\(reset)")
+        lines.append("\(dim)────────────────────\(reset)")
+        lines.append("")
+
+        // Summary line
+        let changeSymbol = diff.packageCountDelta > 0 ? "+" : (diff.packageCountDelta < 0 ? "-" : "=")
+        lines.append("Package count: \(changeSymbol)\(abs(diff.packageCountDelta))  |  Depth delta: \(diff.depthDelta > 0 ? "+" : "")\(diff.depthDelta)")
+        lines.append("")
+
+        // New binary targets — always show prominently
+        if !diff.newBinaryTargets.isEmpty {
+            lines.append("\(red)\(bold)⚠ Binary targets introduced:\(reset)")
+            for pkg in diff.newBinaryTargets {
+                lines.append("  \(red)+ \(pkg.name) (\(pkg.version)) — XCFramework, cannot be source-audited\(reset)")
+            }
+            lines.append("")
+        }
+
+        // New direct dependencies with fan-out
+        if !diff.newDirectDependencies.isEmpty {
+            lines.append("\(bold)New direct dependencies:\(reset)")
+            for pkg in diff.newDirectDependencies {
+                let transitive = diff.transitiveFanoutByNewDep[pkg.id] ?? 0
+                let transitiveWarning = transitive > 10 ? " \(yellow)(+\(transitive) transitive)\(reset)" : " \(dim)(+\(transitive) transitive)\(reset)"
+                lines.append("  \(green)+ \(pkg.name) \(pkg.version)\(reset)\(transitiveWarning)")
+            }
+            lines.append("")
+        }
+
+        // New findings
+        if !diff.newFindings.isEmpty {
+            lines.append("\(red)\(bold)New violations introduced:\(reset)")
+            for finding in diff.newFindings {
+                lines.append(formatFinding(finding, prefix: "\(red)error\(reset)", dim: dim, reset: reset, cyan: cyan))
+            }
+            lines.append("")
+        }
+
+        // Resolved findings
+        if !diff.resolvedFindings.isEmpty {
+            lines.append("\(green)Resolved violations:\(reset)")
+            for finding in diff.resolvedFindings {
+                lines.append("  \(green)✓ \(finding.summary)\(reset)")
+            }
+            lines.append("")
+        }
+
+        if diff.hasBlockingIssues {
+            lines.append("\(red)\(bold)✗ This PR introduces blocking dependency issues.\(reset)")
+        } else {
+            lines.append("\(green)✓ No blocking issues introduced.\(reset)")
+        }
+
+        return lines.joined(separator: "\n")
+    }
+
+    private func formatFinding(_ finding: Finding, prefix: String, dim: String, reset: String, cyan: String) -> String {
+        var lines: [String] = []
+        lines.append("  [\(prefix)] [\(dim)\(finding.ruleID.rawValue)\(reset)] \(finding.summary)")
+        lines.append("  \(dim)\(finding.detail.prefix(200))\(reset)")
+
+        if !finding.graphPath.isEmpty {
+            let pathString = finding.graphPath.map(\.value).joined(separator: " → ")
+            lines.append("  \(dim)Path: \(pathString)\(reset)")
+        }
+
+        lines.append("  \(cyan)→ \(finding.suggestedAction)\(reset)")
+        lines.append("  \(dim)Suppress: avie suppress \(finding.suppressionKey)\(reset)")
+        lines.append("")
+        return lines.joined(separator: "\n")
     }
 }
