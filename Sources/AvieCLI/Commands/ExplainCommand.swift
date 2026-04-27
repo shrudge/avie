@@ -38,8 +38,8 @@ struct ExplainCommand: ParsableCommand {
         let paths = traversal.allPaths(from: graph.rootIdentity, to: targetPackageID, maxPaths: 10)
 
         print("Package: \(targetPkg.name)")
-        print("Version: \(targetPkg.version ?? "Unspecified")")
-        print("URL: \(targetPkg.url ?? "Local")")
+        print("Version: \(targetPkg.version)")
+        print("URL: \(targetPkg.url)")
         print("───────────────────────────")
         
         if paths.isEmpty {
