@@ -5,12 +5,42 @@ import AvieDiff
 public struct JSONFormatter: OutputFormatter {
     public init() {}
 
-    public func format(_ findings: [Finding]) throws -> String {
+    public struct AuditReport: Codable {
+        public let schemaVersion: String
+        public let metadata: RuleEngine.AnalysisResult.Metadata
+        public let findings: [Finding]
+        public let summary: Summary
+
+        public struct Summary: Codable {
+            public let totalPackages: Int
+            public let errors: Int
+            public let warnings: Int
+            public let passed: Bool
+        }
+    }
+
+    public func format(result: RuleEngine.AnalysisResult) throws -> String {
+        let errors = result.findings.filter { $0.severity == .error }.count
+        let warnings = result.findings.filter { $0.severity == .warning }.count
+
+        let report = AuditReport(
+            schemaVersion: "1.0",
+            metadata: result.metadata,
+            findings: result.findings,
+            summary: AuditReport.Summary(
+                totalPackages: result.metadata.totalPackages,
+                errors: errors,
+                warnings: warnings,
+                passed: errors == 0
+            )
+        )
+
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
+        encoder.dateEncodingStrategy = .iso8601
         
-        let data = try encoder.encode(findings)
-        return String(data: data, encoding: .utf8) ?? "[]"
+        let data = try encoder.encode(report)
+        return String(data: data, encoding: .utf8) ?? "{}"
     }
 
     public struct DiffReport: Codable {
