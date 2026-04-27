@@ -71,7 +71,7 @@ struct DiffCommand: ParsableCommand {
             formatter = AvieOutput.TerminalFormatter(useColor: !noColor)
         }
 
-        let output = try formatter.format(diff: diffResult)
+        let output = try formatter.format(diffResult)
         print(output)
 
         if diffResult.hasBlockingIssues {

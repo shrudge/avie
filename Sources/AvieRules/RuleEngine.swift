@@ -23,10 +23,22 @@ public struct RuleEngine {
         public let graph: DependencyGraph
         public let metadata: Metadata
 
+        public init(findings: [Finding], graph: DependencyGraph, metadata: Metadata) {
+            self.findings = findings
+            self.graph = graph
+            self.metadata = metadata
+        }
+
         public struct Metadata: Codable {
             public let totalPackages: Int
             public let directDependencies: Int
             public let transitiveDepth: Int
+
+            public init(totalPackages: Int, directDependencies: Int, transitiveDepth: Int) {
+                self.totalPackages = totalPackages
+                self.directDependencies = directDependencies
+                self.transitiveDepth = transitiveDepth
+            }
         }
     }
 

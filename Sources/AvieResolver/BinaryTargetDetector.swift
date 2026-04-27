@@ -63,7 +63,8 @@ public struct BinaryTargetDetector {
     private static func hasBinaryTarget(at packagePath: String, swiftExecutable: String) -> Bool {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: swiftExecutable)
-        process.arguments = ["package", "dump-package"]
+        // ADDED: --disable-automatic-resolution
+        process.arguments = ["package", "--disable-automatic-resolution", "dump-package"]
         process.currentDirectoryURL = URL(fileURLWithPath: packagePath)
 
         let stdoutPipe = Pipe()

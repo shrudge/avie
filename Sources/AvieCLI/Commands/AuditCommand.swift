@@ -102,7 +102,7 @@ struct AuditCommand: ParsableCommand {
             formatter = TerminalFormatter(useColor: !noColor)
         }
 
-        let output = try formatter.format(result: finalResult)
+        let output = try formatter.format(finalResult)
         print(output)
 
         guard !noFail else { return }

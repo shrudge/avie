@@ -155,7 +155,7 @@ final class AvieDiffTests: XCTestCase {
         let diff = DiffEngine().diff(base: baseSnapshot, head: headSnapshot)
         
         let formatter = SARIFFormatter()
-        let result = try formatter.format(diff: diff)
+        let result = try formatter.format(diff)
         
         let data = result.data(using: .utf8)!
         let jsonDict = try JSONSerialization.jsonObject(with: data) as? [String: Any]

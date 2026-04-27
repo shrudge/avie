@@ -1,5 +1,6 @@
 import Foundation
 import AvieCore
+import AvieRules
 import AvieDiff
 
 public struct JSONFormatter: OutputFormatter {
@@ -19,7 +20,7 @@ public struct JSONFormatter: OutputFormatter {
         }
     }
 
-    public func format(result: RuleEngine.AnalysisResult) throws -> String {
+    public func format(_ result: RuleEngine.AnalysisResult) throws -> String {
         let errors = result.findings.filter { $0.severity == .error }.count
         let warnings = result.findings.filter { $0.severity == .warning }.count
 
@@ -64,7 +65,7 @@ public struct JSONFormatter: OutputFormatter {
         }
     }
 
-    public func format(diff: DiffEngine.DiffResult) throws -> String {
+    public func format(_ diff: DiffEngine.DiffResult) throws -> String {
         let encoder = JSONEncoder()
         encoder.outputFormatting = [.prettyPrinted, .sortedKeys]
         encoder.dateEncodingStrategy = .iso8601

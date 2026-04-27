@@ -1,5 +1,6 @@
 import Foundation
 import AvieCore
+import AvieGraph
 import AvieRules
 import AvieDiff
 
@@ -12,7 +13,7 @@ import AvieDiff
 public struct SARIFFormatter: OutputFormatter {
     public init() {}
 
-    public func format(result: RuleEngine.AnalysisResult) throws -> String {
+    public func format(_ result: RuleEngine.AnalysisResult) throws -> String {
         let findings = result.findings
         let results = findings.map { finding -> [String: Any] in
             let level: String
@@ -71,7 +72,16 @@ public struct SARIFFormatter: OutputFormatter {
         return String(data: data, encoding: .utf8) ?? "{}"
     }
 
-    public func format(diff: DiffEngine.DiffResult) throws -> String {
-        return try format(diff.newFindings)
+    public func format(_ diff: DiffEngine.DiffResult) throws -> String {
+        // Wrap new findings in a dummy result for SARIF formatting
+        let rootID = PackageIdentity("diff")
+        let rootPkg = ResolvedPackage(id: rootID, url: "", version: "0.0.0", name: "diff", directDependencies: [], isRoot: true, containsBinaryTarget: false)
+        let dummyGraph = try! DependencyGraph(packages: [rootID: rootPkg])
+        let result = RuleEngine.AnalysisResult(
+            findings: diff.newFindings,
+            graph: dummyGraph,
+            metadata: .init(totalPackages: 0, directDependencies: 0, transitiveDepth: 0)
+        )
+        return try format(result)
     }
 }

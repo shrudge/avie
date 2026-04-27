@@ -1,6 +1,8 @@
 import XCTest
 @testable import AvieOutput
 @testable import AvieCore
+@testable import AvieRules
+@testable import AvieGraph
 
 final class AvieOutputTests: XCTestCase {
     
@@ -28,10 +30,32 @@ final class AvieOutputTests: XCTestCase {
             )
         ]
     }
+
+    private var mockResult: RuleEngine.AnalysisResult {
+        let rootID = PackageIdentity("root")
+        let pkgID1 = PackageIdentity("foo")
+        let pkgID2 = PackageIdentity("bar")
+        
+        let root = ResolvedPackage(id: rootID, url: "", version: "1.0.0", name: "root", directDependencies: [pkgID1, pkgID2], isRoot: true)
+        let foo = ResolvedPackage(id: pkgID1, url: "", version: "1.0.1", name: "foo", directDependencies: [])
+        let bar = ResolvedPackage(id: pkgID2, url: "", version: "2.0.0", name: "bar", directDependencies: [])
+        
+        let graph = try! DependencyGraph(packages: [
+            rootID: root,
+            pkgID1: foo,
+            pkgID2: bar
+        ])
+
+        return RuleEngine.AnalysisResult(
+            findings: mockFindings,
+            graph: graph,
+            metadata: .init(totalPackages: 3, directDependencies: 2, transitiveDepth: 1)
+        )
+    }
     
     func testTerminalFormatter() throws {
         let formatter = TerminalFormatter()
-        let result = try formatter.format(mockFindings)
+        let result = try formatter.format(mockResult)
         
         // Assert strings exist
         XCTAssertTrue(result.contains("AVIE001"))
@@ -40,25 +64,30 @@ final class AvieOutputTests: XCTestCase {
         XCTAssertTrue(result.contains("WARNING"))
         XCTAssertTrue(result.contains("Package 'foo' is pinned but unreachable."))
         XCTAssertTrue(result.contains("'bar' has high fanout."))
+        XCTAssertTrue(result.contains("Packages: 3 total"))
     }
     
     func testJSONFormatter() throws {
         let formatter = JSONFormatter()
-        let result = try formatter.format(mockFindings)
+        let result = try formatter.format(mockResult)
         
         let data = result.data(using: .utf8)!
-        let jsonArray = try JSONSerialization.jsonObject(with: data) as? [[String: Any]]
+        let json = try JSONSerialization.jsonObject(with: data) as? [String: Any]
         
-        XCTAssertNotNil(jsonArray)
-        XCTAssertEqual(jsonArray?.count, 2)
+        XCTAssertNotNil(json)
+        XCTAssertEqual(json?["schemaVersion"] as? String, "1.0")
         
-        XCTAssertTrue(result.contains("AVIE001"))
-        XCTAssertTrue(result.contains("AVIE003"))
+        let findings = json?["findings"] as? [[String: Any]]
+        XCTAssertEqual(findings?.count, 2)
+        
+        let summary = json?["summary"] as? [String: Any]
+        XCTAssertEqual(summary?["errors"] as? Int, 1)
+        XCTAssertEqual(summary?["warnings"] as? Int, 1)
     }
     
     func testSARIFOutputIsValidSchema() throws {
         let formatter = SARIFFormatter()
-        let result = try formatter.format(mockFindings)
+        let result = try formatter.format(mockResult)
         
         let data = result.data(using: .utf8)!
         let sarifObj = try JSONSerialization.jsonObject(with: data) as? [String: Any]

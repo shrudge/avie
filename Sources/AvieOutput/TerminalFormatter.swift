@@ -1,9 +1,10 @@
 import AvieCore
+import AvieRules
 import AvieDiff
 
 public protocol OutputFormatter {
-    func format(result: RuleEngine.AnalysisResult) throws -> String
-    func format(diff: DiffEngine.DiffResult) throws -> String
+    func format(_ result: RuleEngine.AnalysisResult) throws -> String
+    func format(_ diff: DiffEngine.DiffResult) throws -> String
 }
 
 public struct TerminalFormatter: OutputFormatter {
@@ -14,7 +15,7 @@ public struct TerminalFormatter: OutputFormatter {
         self.useColor = useColor
     }
 
-    public func format(result: RuleEngine.AnalysisResult) throws -> String {
+    public func format(_ result: RuleEngine.AnalysisResult) throws -> String {
         var output = ""
         
         let bold = useColor ? "\u{001B}[1m" : ""
@@ -66,7 +67,7 @@ public struct TerminalFormatter: OutputFormatter {
         return output
     }
 
-    public func format(diff: DiffEngine.DiffResult) throws -> String {
+    public func format(_ diff: DiffEngine.DiffResult) throws -> String {
         var lines: [String] = []
 
         let red = useColor ? "\u{001B}[31m" : ""
