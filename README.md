@@ -1,12 +1,47 @@
 # Avie
 
-Strict, graph-provable dependency auditing for Swift packages.
+**Swift package graph diagnostics. Graph-provable findings. CI-native.**
 
-![macOS 13+](https://img.shields.io/badge/macOS-13%2B-blue)
-![Swift 5.9](https://img.shields.io/badge/Swift-5.9-orange)
-![SPM compatible](https://img.shields.io/badge/SPM-compatible-brightgreen)
+[![Swift 5.9](https://img.shields.io/badge/Swift-5.9+-F05138?style=flat&logo=swift&logoColor=white)](https://swift.org)
+[![Platform macOS 13+](https://img.shields.io/badge/Platform-macOS%2013%2B-lightgrey?style=flat)](https://developer.apple.com/macos)
+[![License MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 
-Avie runs `swift package show-dependencies` and `swift package dump-package`, builds a directed dependency graph, and evaluates four deterministic rules against it. Every finding is graph-provable — no heuristics, no source scanning.
+Avie is a **Swift Package Manager dependency graph audit tool** for iOS and macOS teams. It surfaces structural problems in your `Package.swift` dependency graph — unreachable pins, test dependency leakage, excessive transitive fan-out, and binary target introductions — with findings that are provable from graph mathematics, not guesswork.
+
+The flagship feature is **PR Diff Mode**: snapshot the dependency graph on the base branch, snapshot it on the PR branch, and compare. Any structural regression — a new binary target, a suddenly leaking test framework, a dependency that adds 20 transitive packages — is surfaced as a precise, actionable finding.
+
+---
+
+## Contents
+
+1. [Why Avie](#why-avie)
+2. [Installation](#installation)
+3. [Quick Start](#quick-start)
+4. [Audit Rules](#audit-rules)
+5. [CLI Reference](#cli-reference)
+6. [PR Diff Mode](#pr-diff-mode)
+7. [Configuration](#configuration)
+8. [Suppression](#suppression)
+9. [Output Formats](#output-formats)
+10. [CI/CD Integration](#cicd-integration)
+11. [SPM Command Plugin](#spm-command-plugin)
+12. [Architecture Notes](#architecture-notes)
+13. [Known Limitations](#known-limitations)
+
+---
+
+## Why Avie
+
+The Swift compiler and SPM's resolver prevent version conflicts. They do not prevent _structural_ problems:
+
+| Problem | What it costs | How common |
+|---------|---------------|-----------|
+| Packages pinned in `Package.resolved` that no production target depends on | Slower `swift package resolve`, wasted lockfile space | Very common after refactors |
+| Test frameworks (Quick, Nimble) reachable from production targets | Risk of test code in App Store builds | Subtle, hard to notice |
+| One "lightweight" library that transitively pulls in 15 packages | Unexpected binary size increase, slower builds | Common with SDK-style packages |
+| Binary XCFrameworks introduced silently in a PR | Security and license risk — no source to audit | The scariest one |
+
+Avie catches all four. Its findings are **graph-provable**: derivable purely from dependency graph topology using BFS reachability, not from source scanning, not from heuristics. Either a node is reachable from the root or it is not. The math does not lie.
 
 ---
 
@@ -15,34 +50,30 @@ Avie runs `swift package show-dependencies` and `swift package dump-package`, bu
 ### Homebrew
 
 ```sh
-# TODO: configure your tap and replace the line below
-brew install <your-tap>/avie
+brew install yourtap/tap/avie
 ```
 
-### Build from source
-
-Requirements: macOS 13+, Swift 5.9 / Xcode 14+. Linux is not supported.
+### Swift Package Manager (from source)
 
 ```sh
-git clone https://github.com/<your-username>/avie.git
+git clone https://github.com/TODO/avie.git
 cd avie
 swift build -c release
 cp .build/release/avie /usr/local/bin/avie
 ```
 
-### SPM Command Plugin
+### SPM Command Plugin (use in your project)
 
-Add Avie as a dev dependency and run the plugin directly:
+Add to your `Package.swift`:
 
 ```swift
-// In your Package.swift
-.package(url: "https://github.com/<your-username>/avie.git", from: "1.0.0")
+.package(url: "https://github.com/TODO/avie.git", from: "1.0.0")
 ```
+
+Then invoke:
 
 ```sh
 swift package avie-audit
-swift package avie-audit --format json
-swift package avie-audit --ci
 ```
 
 ---
@@ -50,424 +81,529 @@ swift package avie-audit --ci
 ## Quick Start
 
 ```sh
-# In any Swift package directory
+# Navigate to your Swift package
+cd MyApp
+
+# Run a full graph audit
 avie audit
 
-# Diff mode for PR analysis
-avie diff --base base-snapshot.json --head head-snapshot.json
-
-# Explain why a package is in the graph
-avie explain swift-argument-parser
-
-# Suppress a finding
-avie suppress --rule AVIE003 --package grdb --reason "GRDB fanout is expected and reviewed"
+# Example output:
+# Avie Dependency Graph Audit
+# ─────────────────────────────
+# Packages: 24 total, 6 direct
+# Max depth: 4
+#
+# [error] [AVIE001] swift-log is pinned but unreachable from root
+#   'swift-log' appears in Package.resolved but no path exists from root.
+#   → Run `swift package resolve` to remove stale pins.
+#   Suppress: avie suppress AVIE001:swift-log --reason "..."
+#
+# Summary: 1 error(s), 0 warning(s)
 ```
 
----
-
-## Commands Reference
-
-### `avie audit`
-
-Runs all enabled rules against the current package graph.
-
-```
-avie audit [options]
-
-Options:
-  -p, --path <path>        Path to package directory (default: .)
-      --format <format>    Output format: terminal, json, sarif (default: terminal)
-      --ci                 Disable automatic dependency resolution (for CI environments)
-      --no-color           Disable ANSI color output
-      --no-fail            Exit 0 even if error-severity findings are present
-  -h, --help               Show help
-```
-
-**Examples:**
-
-```sh
-avie audit --format sarif > results.sarif
-avie audit --ci --no-color
-avie audit --no-fail   # informational run — always exits 0
-```
-
----
-
-### `avie diff`
-
-Compares two graph snapshots produced by `avie snapshot`. Reports only newly introduced issues.
-
-```
-avie diff [options]
-
-Options:
-      --base <path>        Base branch snapshot JSON (required)
-      --head <path>        Head (PR) branch snapshot JSON (required)
-      --format <format>    Output format: terminal, json, sarif (default: terminal)
-      --no-color           Disable ANSI color output
-  -h, --help               Show help
-```
-
-**Examples:**
-
-```sh
-avie snapshot --output base.json
-# ... make changes ...
-avie snapshot --output head.json
-avie diff --base base.json --head head.json
-avie diff --base base.json --head head.json --format sarif > pr-diff.sarif
-```
-
----
-
-### `avie snapshot`
-
-Captures the current graph state and audit findings to a JSON file for later comparison.
-
-```
-avie snapshot [options]
-
-Options:
-  -p, --path <path>        Path to package directory (default: .)
-  -o, --output <path>      Output JSON path (default: avie-snapshot.json)
-      --git-ref <ref>      Git ref label embedded in snapshot (e.g. branch name)
-      --ci                 Disable automatic dependency resolution
-  -h, --help               Show help
-```
-
----
-
-### `avie explain`
-
-Prints all dependency paths from the root to a named package.
-
-```
-avie explain <package-identity> [options]
-
-Arguments:
-  <package-identity>       Package identity to explain (e.g. swift-argument-parser)
-
-Options:
-  -p, --path <path>        Path to package directory (default: .)
-      --ci                 Disable automatic dependency resolution
-  -h, --help               Show help
-```
-
-**Example:**
-
-```sh
-avie explain grdb
-# Package: GRDB
-# Version: 6.29.3
-# URL: https://github.com/groue/GRDB.swift
-# ───────────────────────────
-# 2 path(s) to GRDB (showing up to 10):
-#   1. root → my-app-target → grdb
-#   2. root → some-library → grdb
-```
-
----
-
-### `avie suppress`
-
-Adds an entry to `avie-suppress.json` to silence a specific finding indefinitely.
-
-```
-avie suppress [options]
-
-Options:
-      --rule <id>          Rule ID to suppress (e.g. AVIE001) (required)
-      --package <identity> Package identity to suppress (e.g. grdb) (required)
-  -r, --reason <reason>    Reason for suppression — mandatory, must be non-empty (required)
-      --who <name>         Author name (defaults to $USER)
-  -h, --help               Show help
-```
-
-**Example:**
-
-```sh
-avie suppress --rule AVIE003 --package grdb \
-  --reason "GRDB is a full-featured database. Its transitive depth is expected and reviewed."
-```
-
-Suppressions are keyed as `ruleID:packageIdentity`. They survive graph changes because they identify the specific rule-package pair, not a graph snapshot.
-
----
-
-## Exit Codes
-
-| Code | Meaning |
-|------|---------|
-| `0`  | Clean — no error-severity findings on configured `failOn` rules |
-| `1`  | Error-severity findings are present (suppressed `--no-fail` to override) |
-| `2`  | Fatal error — resolver failed, graph could not be built, or parse error |
-| `3`  | Configuration error — `.avie.json` is malformed |
-
-Use exit codes in CI scripts:
-
-```sh
-avie audit || { echo "Dependency issues found"; exit 1; }
-
-# Informational — always passes
-avie audit --no-fail; echo "Audit complete (exit 0 regardless)"
-```
+Exit codes: `0` = clean, `1` = error-severity findings, `2` = resolver failure, `3` = config malformed.
 
 ---
 
 ## Audit Rules
 
-### AVIE001 — Unreachable Pins
+All four v1 rules are **graph-provable**: their findings are derivable from dependency graph topology alone. Avie v1 does not scan source files for `import` statements.
 
-**Severity:** error  
-**Confidence:** proven
+### AVIE001 — Unreachable Pin
 
-A package is present in `Package.resolved` but no target in `Package.swift` depends on it, directly or transitively.
+**Severity:** Error  
+**Confidence:** Proven
 
-**Trigger:** Package exists in the resolved pin list but has no path from the root through any production or test target.
+A package appears in `Package.resolved` but is not reachable from the root package via any dependency edge.
 
-**Fix:** Remove the package from your `Package.swift` dependencies and run `swift package resolve`.
+**Why this happens:**
+- A dependency was removed from `Package.swift` but `swift package resolve` was not re-run
+- `Package.resolved` is stale (lockfile not updated after manifest change)
 
-**Note:** If you just removed a package from `Package.swift`, `swift package resolve` must be run before Avie is invoked. Until then, the stale pin remains in `Package.resolved` and AVIE001 will fire. This is expected behavior — run `swift package resolve` first.
+**Action:** Run `swift package resolve`. The stale pin will be removed.
+
+**Example finding:**
+```
+[error] [AVIE001] swift-log is pinned but unreachable from root
+  'swift-log' (1.5.4) appears in the resolved dependency graph but
+  no path exists from the root package to this dependency.
+  → Run `swift package resolve` to remove stale pins, or check if
+    this package was intentionally removed from Package.swift.
+```
 
 ---
 
 ### AVIE002 — Test Leakage
 
-**Severity:** error  
-**Confidence:** heuristic
+**Severity:** Error  
+**Confidence:** Proven (requires manifest data)
 
-A package that is only directly depended upon by a test target is transitively reachable from a production target.
+A package that is exclusively depended on by test targets is also transitively reachable from a production target's dependency graph.
 
-**Trigger:** A package is declared only in test target dependencies, but a production target pulls it in transitively through another dependency.
+**Why this matters:** Test frameworks (Quick, Nimble, ViewInspector) should never be compiled into App Store binaries. When they're transitively reachable from production targets, they risk being linked into release builds.
 
-**Fix:** Audit the direct production dependency that is pulling in the test library. You may need to update that library to make the test dependency a dev-only dependency, or remove the test library from your graph if it is unused.
+**Requires:** `swift package dump-package` output (collected automatically). If manifest parsing fails, AVIE002 is skipped and a note is emitted.
 
-**Note:** AVIE002 requires manifest data from `swift package dump-package`. If that command fails, this rule is silently skipped. All other rules continue.
+**Example finding:**
+```
+[error] [AVIE002] Test dependency 'quick' leaked into production graph.
+  This package is only directly depended on by a test target, but is
+  transitively reachable from a production target.
+  → Check production dependencies. You may be importing a test library
+    in production code.
+```
 
 ---
 
 ### AVIE003 — Excessive Transitive Fan-out
 
-**Severity:** warning  
-**Confidence:** proven
+**Severity:** Warning  
+**Confidence:** Proven
 
-A single direct dependency introduces more transitive packages than the configured threshold.
+A direct dependency of the root package transitively pulls in more packages than the configured threshold (default: 10).
 
-**Default threshold:** 10 packages. Configurable via `.avie.json`.
+**Why this matters:** A single "lightweight" library that pulls in 15 transitive packages can silently double your dependency graph. This rule is most valuable in **PR Diff Mode**, where it flags when a new dependency introduces excessive fan-out.
 
-**Trigger:** `transitiveCount(dep) > fanoutThreshold` for any direct dependency of the root.
+**Configuration:** Set `rules.fanoutThreshold` in `.avie.json` (default: `10`).
 
-**Fix:** Evaluate whether the dependency can be replaced with a lighter alternative, whether you use only a small subset of its API, or raise the threshold in `.avie.json` if the fanout is acceptable.
-
-**Example config to raise threshold:**
-
-```json
-{
-  "rules": {
-    "fanoutThreshold": 20
-  }
-}
+**Example finding:**
+```
+[warning] [AVIE003] Firebase introduces 23 transitive dependencies (threshold: 10)
+  'Firebase' is a direct dependency that transitively pulls in 23 additional
+  packages. Consider whether all 23 packages are genuinely needed.
+  → Review whether 'Firebase' is being used for a narrow purpose that could
+    be served by a lighter-weight package.
 ```
 
 ---
 
-### AVIE004 — Binary Target Detected
+### AVIE004 — Binary Target Introduced
 
-**Severity:** warning  
-**Confidence:** proven
+**Severity:** Error  
+**Confidence:** Proven
 
-A package in the graph includes a binary target (XCFramework).
+A dependency in the graph contains a `.binaryTarget` declaration (XCFramework).
 
-**Trigger:** `swift package show-dependencies` reports a package with one or more binary targets.
+**Why this matters:** Binary targets cannot be audited for security vulnerabilities (no source), their code size contribution cannot be estimated without full compilation, and their licenses cannot be reviewed from source. Any binary target introduction requires explicit human review.
 
-**Fix:** Verify the binary target is from a trusted source. If a source-available alternative exists, prefer it. Suppress this finding if the binary is intentional and reviewed.
+**Detection method:** Avie runs `swift package dump-package` in each dependency's local checkout path and inspects the `targets` array for entries with `type == "binary"`. This is manifest inspection, not URL pattern matching.
 
-**Note:** Binary targets limit platform portability and cannot be audited for security or license compliance.
+**Example finding:**
+```
+[error] [AVIE004] GoogleAnalytics contains a binary target (XCFramework)
+  'GoogleAnalytics' contains a .binaryTarget declaration, meaning it
+  distributes a pre-compiled XCFramework that cannot be source-audited.
+  → Review the XCFramework source, license, and security posture.
+    Add a suppression if this binary target is intentional and reviewed.
+```
+
+---
+
+## CLI Reference
+
+### `avie audit`
+
+Run a full dependency graph audit on the current package.
+
+```sh
+avie audit [--path <path>] [--format <format>] [--ci] [--no-color] [--no-fail]
+```
+
+| Flag | Description |
+|------|-------------|
+| `--path <path>` | Package directory (default: `.`) |
+| `--format <format>` | `terminal` (default), `json`, or `sarif` |
+| `--ci` | Append `--disable-automatic-resolution` to SPM calls (prevents network access in CI) |
+| `--no-color` | Disable ANSI color output |
+| `--no-fail` | Exit 0 even if error-severity findings are present |
+
+**Exit codes:**
+
+| Code | Meaning |
+|------|---------|
+| `0` | No error-severity findings (warnings may be present) |
+| `1` | One or more error-severity findings |
+| `2` | Fatal error: resolver failed, package not found, or parse error |
+| `3` | Configuration error: `.avie.json` is malformed |
+
+---
+
+### `avie snapshot`
+
+Capture the current dependency graph state as a JSON file for later diff comparison.
+
+```sh
+avie snapshot [--path <path>] [--output <file>] [--git-ref <ref>] [--ci]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--path <path>` | Package directory (default: `.`) |
+| `--output <file>` | Output path (default: `avie-snapshot.json`) |
+| `--git-ref <ref>` | Git branch/SHA label for CI traceability |
+| `--ci` | Disable automatic dependency resolution |
+
+Snapshots include the full package graph, all audit findings, and the avie version that generated them.
+
+---
+
+### `avie diff`
+
+Compare two snapshots and report what changed.
+
+```sh
+avie diff --base <base.json> --head <head.json> [--format <format>]
+```
+
+| Option | Description |
+|--------|-------------|
+| `--base <file>` | JSON snapshot from the base branch |
+| `--head <file>` | JSON snapshot from the PR branch |
+| `--format <format>` | `terminal` (default), `json`, or `sarif` |
+
+Reports:
+- Packages added / removed
+- Version changes (numeric semver comparison — `10.0.0 > 2.0.0`)
+- New direct dependencies and their transitive fan-out
+- New binary targets introduced
+- New audit findings that weren't in base
+- Findings from base that were resolved in head
+
+Exit code `1` if the diff has blocking issues (new binary targets or new error-severity findings).
+
+---
+
+### `avie explain`
+
+Explain why a package is in the dependency graph.
+
+```sh
+avie explain <package-identity> [--path <path>]
+```
+
+Finds all paths from the root package to the named package, showing exactly what chain of dependencies pulls it in.
+
+---
+
+### `avie suppress`
+
+Add a suppression entry to `avie-suppress.json`.
+
+```sh
+avie suppress <key> --reason <text> [--who <name>]
+```
+
+The key format is `RULE_ID:package-identity`, for example:
+
+```sh
+avie suppress AVIE003:grdb \
+  --reason "GRDB is a full-featured database library. Transitive depth is expected and reviewed."
+```
+
+| Argument/Option | Description |
+|-----------------|-------------|
+| `<key>` | Positional: suppression key in format `AVIE003:package-identity` |
+| `--reason <text>` | Mandatory. Non-empty reason for the suppression. |
+| `--who <name>` | Author (defaults to `$USER` environment variable) |
+
+---
+
+## PR Diff Mode
+
+PR Diff Mode is Avie's flagship feature. The workflow:
+
+```sh
+# On base branch
+git checkout main
+avie snapshot --output base.json --git-ref main --ci
+
+# On PR branch
+git checkout my-feature
+avie snapshot --output head.json --git-ref my-feature --ci
+
+# Compare
+avie diff --base base.json --head head.json
+```
+
+**Sample diff output:**
+```
+Avie PR Diff Report
+────────────────────
+Package count: +3  |  Depth delta: +1
+
+⚠ Binary targets introduced:
+  + GoogleAnalytics (1.0.0) — XCFramework, cannot be source-audited
+
+New direct dependencies:
+  + Firebase 10.25.0 (+18 transitive)
+
+New violations introduced:
+  [error] [AVIE004] GoogleAnalytics contains a binary target (XCFramework)
+    → Review the XCFramework source, license, and security posture.
+
+✗ This PR introduces blocking dependency issues.
+```
 
 ---
 
 ## Configuration
 
-### `.avie.json`
-
-Place in your package root. All fields are optional.
+Create `.avie.json` in the package root to customize behavior:
 
 ```json
 {
   "rules": {
-    "fanoutThreshold": 10,
+    "fanoutThreshold": 15,
     "enabled": ["AVIE001", "AVIE002", "AVIE003", "AVIE004"],
     "failOn": ["AVIE001", "AVIE002", "AVIE004"]
   }
 }
 ```
 
-| Field | Type | Default | Description |
-|-------|------|---------|-------------|
-| `rules.fanoutThreshold` | `Int` | `10` | Max transitive deps before AVIE003 fires |
-| `rules.enabled` | `[String]` | all four | Which rules to run |
-| `rules.failOn` | `[String]` | AVIE001, AVIE002, AVIE004 | Rules that produce exit code 1 |
+| Key | Default | Description |
+|-----|---------|-------------|
+| `rules.fanoutThreshold` | `10` | Transitive dependency count that triggers AVIE003 |
+| `rules.enabled` | All four | Rule IDs to run |
+| `rules.failOn` | `AVIE001`, `AVIE002`, `AVIE004` | Rules that produce a non-zero exit code (AVIE003 is warning-only by default) |
+
+All fields are optional. An absent `.avie.json` uses the defaults above.
 
 ---
 
-### `avie-suppress.json`
+## Suppression
 
-Managed by `avie suppress`. Commit this file to version control.
+Suppressions are stored in `avie-suppress.json` at the package root. Add them with `avie suppress`:
+
+```sh
+avie suppress AVIE003:grdb \
+  --reason "GRDB is a full-featured database. Transitive depth is expected." \
+  --who "jane.doe"
+```
+
+This writes:
 
 ```json
 {
   "suppressions": [
     {
       "key": "AVIE003:grdb",
-      "reason": "GRDB is a full-featured database library. Its transitive depth is expected and reviewed.",
+      "reason": "GRDB is a full-featured database. Transitive depth is expected.",
       "addedBy": "jane.doe",
-      "addedAt": "2025-01-15T14:30:00Z"
+      "addedAt": "2025-03-15T09:30:00Z"
     }
   ]
 }
 ```
 
-**Key format:** `RULEIO:package-identity`
+**Key design:** Suppression keys are `ruleID:packageIdentity`. They are identity-based, not graph-state-based. This means the suppression file remains stable when the graph changes in ways unrelated to the suppressed finding — no Git merge conflicts from baseline drift.
 
-Keys are deterministic and merge-conflict-safe. They identify a specific rule-package pair, not a graph state. Reorganizing your package graph does not invalidate suppressions.
+Commit `avie-suppress.json` to source control. Reviewers can audit every suppression: what was suppressed, why, by whom, and when.
 
-**Best practices:**
-- Always provide a meaningful `--reason`. Empty reasons are rejected.
-- Review suppressions periodically. If the underlying issue is fixed, remove the suppression.
-- Suppressions are package-scoped, not version-scoped. A suppression for `grdb` applies to all versions.
+---
+
+## Output Formats
+
+### Terminal (default)
+
+Color-coded, human-readable output for local development. Auto-detects TTY; color is automatically disabled when output is piped. Use `--no-color` to disable explicitly.
+
+### JSON (`--format json`)
+
+Machine-readable output for custom CI tooling or dashboard integration. Schema:
+
+```json
+{
+  "schemaVersion": "1.0",
+  "metadata": {
+    "totalPackages": 24,
+    "directDependencies": 6,
+    "transitiveDepth": 4,
+    "analysisDate": "2025-03-15T09:30:00Z"
+  },
+  "findings": [
+    {
+      "ruleID": "AVIE001",
+      "severity": "error",
+      "confidence": "proven",
+      "summary": "swift-log is pinned but unreachable from root",
+      "detail": "...",
+      "graphPath": [],
+      "suggestedAction": "Run `swift package resolve` to remove stale pins.",
+      "affectedPackage": "swift-log",
+      "suppressionKey": "AVIE001:swift-log"
+    }
+  ],
+  "summary": {
+    "totalPackages": 24,
+    "errors": 1,
+    "warnings": 0,
+    "passed": false
+  }
+}
+```
+
+### SARIF (`--format sarif`)
+
+[SARIF 2.1.0](https://docs.oasis-open.org/sarif/sarif/v2.1.0/sarif-v2.1.0.html) output for GitHub Code Scanning integration. When uploaded, findings appear as:
+- Inline PR annotations on changed files
+- Entries in the repository's **Security** tab
+- Status checks on the PR
+
+Upload with `github/codeql-action/upload-sarif@v3`.
 
 ---
 
 ## CI/CD Integration
 
-See [`docs/avie-action.yml`](docs/avie-action.yml) for a complete GitHub Actions workflow template that:
-
-- Runs on PRs that modify `Package.swift` or `Package.resolved`
-- Captures base and head branch snapshots
-- Runs `avie diff` in SARIF mode
-- Uploads results to the GitHub Security tab for inline PR annotations
-
-**Minimal PR diff workflow:**
+Copy the following workflow to `.github/workflows/avie.yml` in your repository:
 
 ```yaml
-- name: Snapshot base branch
-  run: |
-    git checkout ${{ github.base_ref }}
-    avie snapshot --output base.json --ci
+name: Avie Dependency Audit
 
-- name: Snapshot PR branch
-  run: |
-    git checkout ${{ github.head_ref }}
-    avie snapshot --output head.json --ci
+on:
+  pull_request:
+    paths:
+      - 'Package.swift'
+      - 'Package.resolved'
 
-- name: Diff
-  run: avie diff --base base.json --head head.json --format sarif > avie.sarif
+jobs:
+  avie-audit:
+    runs-on: macos-latest
+    permissions:
+      security-events: write   # Required for SARIF upload
+      pull-requests: read
 
-- name: Upload SARIF
-  uses: github/codeql-action/upload-sarif@v3
-  with:
-    sarif_file: avie.sarif
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # Required for git checkout of base branch below
+
+      - name: Install Avie
+        run: brew install yourtap/tap/avie
+
+      # Capture base branch snapshot
+      - name: Snapshot base branch
+        run: |
+          git checkout ${{ github.base_ref }}
+          avie snapshot \
+            --output base-snapshot.json \
+            --git-ref ${{ github.base_ref }} \
+            --ci
+
+      # Capture PR branch snapshot
+      - name: Snapshot PR branch
+        run: |
+          git checkout ${{ github.head_ref }}
+          avie snapshot \
+            --output head-snapshot.json \
+            --git-ref ${{ github.head_ref }} \
+            --ci
+
+      # Run diff and emit SARIF for GitHub Code Scanning
+      - name: Run Avie Diff
+        run: |
+          avie diff \
+            --base base-snapshot.json \
+            --head head-snapshot.json \
+            --format sarif > avie-results.sarif
+
+      - name: Upload SARIF
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: avie-results.sarif
+          category: avie-dependency-audit
+
+      # Also run full audit for human-readable log output
+      - name: Full Audit
+        run: avie audit --ci --format terminal
 ```
 
-**CI mode (`--ci`):** Passes `--disable-automatic-resolution` to `swift package show-dependencies`. Use this in air-gapped environments or when you want to guarantee the graph state matches `Package.resolved` exactly without network access.
-
-**Informational checks:** Use `--no-fail` to run Avie on every PR without blocking merges:
-
-```sh
-avie audit --ci --no-fail --format sarif > avie.sarif
-```
+**The `--ci` flag** appends `--disable-automatic-resolution` to all SPM calls, keeping CI runs deterministic and preventing unexpected network access.
 
 ---
 
-## Troubleshooting
+## SPM Command Plugin
 
-**AVIE001 fires after I removed a package from `Package.swift`**  
-Run `swift package resolve` before running `avie audit`. The stale pin remains in `Package.resolved` until SPM updates it.
-
-**Audit fails with a manifest error**  
-`swift package dump-package` failed. Run it directly to see the error:
+Avie ships as an SPM Command Plugin (`AviePlugin`). This lets you run audits without installing the CLI binary:
 
 ```sh
-swift package dump-package
+# Run in your project directory
+swift package avie-audit
+
+# With options
+swift package avie-audit --format json
+swift package avie-audit --ci
 ```
 
-This only affects AVIE002 (Test Leakage). All other rules continue. If the error is persistent, check your `Package.swift` for syntax issues.
+The plugin invokes `avie audit` with the package directory automatically set. It propagates the exit code, so `swift package avie-audit` will fail in CI when findings are present.
 
-**Error: An Xcode project was detected**  
-Avie v1 supports pure SPM packages only. Xcode project workspace support is planned for v2. Run `swift package` commands from the directory containing `Package.swift`, not the `.xcodeproj`.
-
-**No color output in CI**  
-Pass `--no-color` explicitly, or rely on CI environment detection. Terminal color codes are always safe to suppress in log files.
-
-**`avie snapshot` fails with "dependencies not resolved"**  
-Run `swift package resolve` first. In CI, verify your checkout step fetches the full history and resolves dependencies before the snapshot step.
+**Important:** Avie ships as a **Command Plugin**, not a Build Tool Plugin. It runs only when you invoke it intentionally — never automatically on `swift build` or `Cmd+B` in Xcode. This is by design.
 
 ---
 
-## Development
+## Architecture Notes
 
-### Running tests
+### Data Source
 
-```sh
-swift test
-```
+Avie uses `swift package show-dependencies --format json` as its primary data source. This is SPM's own output and contains the full dependency edge set. It does **not** use `Package.resolved` (a flat pin list with no graph edges).
 
-### Fixture packages
+The manifest (`swift package dump-package`) is used by AVIE002 (Test Leakage) to determine which targets are test targets, and for binary target detection (AVIE004).
 
-Integration tests in `Tests/AvieResolverTests/` run against pre-baked fixture packages in `Tests/AvieResolverTests/Fixtures/`. Each fixture is a minimal Swift package that reproduces exactly one finding scenario:
+### Graph-Provable Findings
 
-| Fixture | Rule triggered |
-|---------|---------------|
-| `simple-package` | baseline — no findings |
-| `unreachable-pin` | AVIE001 |
-| `test-leakage` | AVIE002 |
-| `deep-transitive` | AVIE003 |
-| `binary-target` | AVIE004 |
-| `diff-scenario` | snapshot/diff pipeline |
+Every finding Avie v1 emits is derivable from graph structure using BFS reachability. The claim is precisely: "this node is [not] reachable from the root node via these edges." No source scanning. No pattern matching. No heuristics.
 
-### Adding a new rule
+This is documented in findings output as `"confidence": "proven"`.
 
-1. Add a new `case` to `RuleID` in `Sources/AvieCore/Models/RuleID.swift`
-2. Implement `Rule` protocol in `Sources/AvieRules/`
-3. Register the case in `RuleEngine.instantiateRules(from:)`
-4. Add a fixture package that reproduces the finding
-5. Add tests to `Tests/AvieRulesTests/`
+### Identity Derivation
+
+Package identities are derived from the source URL's last path component (with `.git` suffix stripped, lowercased). Example: `https://github.com/apple/swift-argument-parser.git` → `swift-argument-parser`. This matches SPM's own identity derivation.
+
+### Version Comparison
+
+`avie diff` uses numeric semantic version comparison (`major.minor.patch`). `10.0.0 > 2.0.0` is true. Pre-release suffixes (`1.0.0-beta`) are always considered older than the same version without them.
+
+### Swift Toolchain Resolution
+
+Avie resolves the `swift` executable at runtime via `xcrun -f swift`, then `which swift`, then falls back to `/usr/bin/swift`. This ensures correct behavior with Homebrew Swift installations and `xcode-select` alternate toolchains.
 
 ---
 
-## Project Structure
+## Known Limitations
 
-```
-Sources/
-  AvieCore/       — shared models (Finding, ResolvedPackage, RuleID, configuration)
-  AvieResolver/   — SPMResolver, ManifestReader, DependencyTransformer
-  AvieGraph/      — DependencyGraph, GraphTraversal (BFS/DFS)
-  AvieRules/      — Rule protocol, RuleEngine, AVIE001–AVIE004
-  AvieDiff/       — GraphSnapshot, DiffEngine
-  AvieOutput/     — TerminalFormatter, JSONFormatter, SARIFFormatter
-  AvieCLI/        — entry point, all subcommands
+### v1 Explicit Non-Goals
 
-Tests/
-  AvieCoreTests/
-  AvieResolverTests/    — includes Fixtures/
-  AvieGraphTests/
-  AvieRulesTests/
-  AvieDiffTests/
-  AvieOutputTests/
+| Limitation | Reason | Planned |
+|------------|--------|---------|
+| Xcode-managed projects (`.xcodeproj`) | `swift package` commands don't work in `.xcodeproj` directories | v2 |
+| Source-level usage verification (`import` scanning) | SwiftIndexStore requires a prior build; SwiftSyntax has false positives | v2 |
+| Linux targets | Avie's analyzer runs on macOS only in v1 | v2 |
 
-Plugins/
-  AviePlugin/     — SPM Command Plugin (swift package avie-audit)
+### Xcode Projects
 
-docs/
-  avie-action.yml — GitHub Actions template
+If your project uses `.xcodeproj` and depends on SPM for packages, Avie v1 cannot analyze it. The package dependencies are stored in a different location (`MyApp.xcodeproj/project.xcworkspace/xcshareddata/swiftpm/Package.resolved`) and `swift package show-dependencies` does not work in that directory structure.
 
-.github/
-  workflows/
-    release.yml   — binary release on version tags
-```
+Avie v1 supports **pure SPM packages** only — projects with a `Package.swift` at the root where `swift package resolve` works.
+
+### Stale `Package.resolved`
+
+AVIE001 (Unreachable Pin) fires on packages removed from `Package.swift` whose pins remain in `Package.resolved` because `swift package resolve` hasn't been re-run. This is a **legitimate finding**, not a false positive. The developer action is to run `swift package resolve` to clean up the lockfile.
+
+### Language Precision
+
+Avie uses precise language in all output:
+- **Use:** "unreachable," "not reachable from root targets"
+- **Never:** "dead," "unused," "bloat"
+
+The distinction matters: "unused" implies semantic proof of non-usage. Avie proves graph reachability — a different and more precise claim.
 
 ---
 
 ## License
 
-MIT. See LICENSE file.
+MIT — see [LICENSE](LICENSE).
+
+---
+
+*Avie v1.0.0 — graph-provable findings for Swift package graphs.*

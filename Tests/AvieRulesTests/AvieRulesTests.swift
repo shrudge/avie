@@ -11,7 +11,8 @@ final class AvieRulesTests: XCTestCase {
         let fixturePath = currentDir.appendingPathComponent("Fixtures/\(name)")
         let resolver = SPMResolver(packageDirectory: fixturePath)
         let spmOutput = try resolver.resolve()
-        let packages = DependencyTransformer().transform(spmOutput)
+        // Bug 5 fix: URL-derived identity; no binary targets in test fixtures
+        let packages = DependencyTransformer().transform(spmOutput, binaryTargetIDs: [])
         let graph = try DependencyGraph(packages: packages)
         let traversal = GraphTraversal(graph: graph)
         return (graph, traversal)
@@ -30,10 +31,12 @@ final class AvieRulesTests: XCTestCase {
         manifestData.targets.map { targetData in
             TargetDeclaration(
                 id: targetData.name,
-                kind: targetData.type == "test" ? .test : .regular, // Simplified
+                kind: targetData.type == "test" ? .test : .regular,
                 packageIdentity: rootIdentity,
+                // Bug 7 fix: use the new .packageIdentity computed property on the
+                // ManifestTargetDependency enum instead of the old struct accessor.
                 packageDependencies: targetData.dependencies.compactMap { dep in
-                    dep.product?.package.lowercased()
+                    dep.packageIdentity
                 }.map(PackageIdentity.init)
             )
         }

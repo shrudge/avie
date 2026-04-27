@@ -3,7 +3,7 @@ import AvieGraph
 
 public struct BinaryTargetRule: Rule {
     public let id = RuleID.binaryTargetIntroduced
-    public let severity = Finding.Severity.warning
+    public let severity = Finding.Severity.error
     public let name = "Binary Target Introduced"
     public let description = "Flags packages that contain binary targets."
 

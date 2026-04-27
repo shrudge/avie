@@ -1,3 +1,4 @@
+#if canImport(PackagePlugin)
 import PackagePlugin
 import Foundation
 
@@ -31,3 +32,4 @@ struct AviePlugin: CommandPlugin {
         case auditFailed(Int32)
     }
 }
+#endif

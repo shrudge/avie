@@ -47,7 +47,15 @@ struct AuditCommand: ParsableCommand {
             throw ExitCode(2)
         }
 
-        let packages = DependencyTransformer().transform(spmOutput)
+        // Bug 4: Detect binary targets via manifest inspection (Option A).
+        // Runs dump-package in each dependency's checkout path.
+        let binaryTargetIDs = BinaryTargetDetector.detect(
+            in: spmOutput,
+            swiftExecutable: SwiftToolFinder.path
+        )
+
+        // Bug 5: DependencyTransformer now uses URL-derived identity.
+        let packages = DependencyTransformer().transform(spmOutput, binaryTargetIDs: binaryTargetIDs)
 
         let graph: DependencyGraph
         do {

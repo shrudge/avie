@@ -1,6 +1,12 @@
 import Foundation
 import AvieCore
 
+/// Executes `swift package show-dependencies --format json` and parses
+/// the output into Avie's domain model.
+///
+/// Bug 6 Fix: Uses SwiftToolFinder.path instead of hardcoded /usr/bin/swift.
+/// This ensures correct toolchain resolution on Homebrew installations,
+/// Xcode-select alternate toolchains, and non-standard CI images.
 public final class SPMResolver {
     private let packageDirectory: URL
     private let isCI: Bool
@@ -75,7 +81,8 @@ public final class SPMResolver {
         }
 
         let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/bin/swift")
+        // Bug 6 Fix: resolve swift from PATH instead of hardcoding /usr/bin/swift
+        process.executableURL = URL(fileURLWithPath: SwiftToolFinder.path)
         process.arguments = arguments
         process.currentDirectoryURL = packageDirectory
 

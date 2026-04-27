@@ -33,7 +33,15 @@ struct SnapshotCommand: ParsableCommand {
 
         // 2. Resolve
         let spmOutput = try resolver.resolve()
-        let packages = DependencyTransformer().transform(spmOutput)
+
+        // Bug 4: Detect binary targets via manifest inspection in each checkout.
+        let binaryTargetIDs = BinaryTargetDetector.detect(
+            in: spmOutput,
+            swiftExecutable: SwiftToolFinder.path
+        )
+
+        // Bug 5: URL-derived identity via updated DependencyTransformer.
+        let packages = DependencyTransformer().transform(spmOutput, binaryTargetIDs: binaryTargetIDs)
 
         // 3. Optional Manifest for richer analysis
         let manifestReader = ManifestReader(packageDirectory: packageURL)

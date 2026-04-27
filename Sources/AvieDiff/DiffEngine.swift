@@ -55,7 +55,9 @@ public final class DiffEngine {
         public let package: PackageIdentity
         public let fromVersion: String
         public let toVersion: String
-        public let isUpgrade: Bool  // simple string comparison
+        /// True when toVersion is semantically greater than fromVersion.
+        /// Comparison is numeric (major.minor.patch), not lexicographic.
+        public let isUpgrade: Bool
     }
 
     public init() {}
@@ -79,7 +81,16 @@ public final class DiffEngine {
                 package: id,
                 fromVersion: basePkg.version,
                 toVersion: headPkg.version,
-                isUpgrade: headPkg.version > basePkg.version
+                isUpgrade: {
+                    // Bug 9 Fix: semantic comparison rather than string comparison.
+                    // "10.0.0" > "2.0.0" is false in string comparison; true here.
+                    guard let base = SemanticVersion(basePkg.version),
+                          let head = SemanticVersion(headPkg.version) else {
+                        // Unparseable version strings: fall back to string comparison
+                        return headPkg.version > basePkg.version
+                    }
+                    return head > base
+                }()
             )
         }
 

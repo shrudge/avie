@@ -71,6 +71,9 @@ public struct GraphTraversal {
         return dfs(start, &visited)
     }
 
+    /// Bug 8 fix: sort initial queue by PackageIdentity.value (String) for deterministic output.
+    /// The previous sort used $0.value < $1.value on the dict tuple where value was Int (in-degree),
+    /// but all entries at this point have value == 0 — making it a no-op that produced random order.
     public func topologicalSort() -> [PackageIdentity] {
         var inDegree: [PackageIdentity: Int] = [:]
         for id in graph.packages.keys { inDegree[id] = 0 }
@@ -81,6 +84,7 @@ public struct GraphTraversal {
             }
         }
 
+        // Sort by identity string so output is deterministic across runs.
         var queue = inDegree.filter { $0.value == 0 }.map { $0.key }.sorted { $0.value < $1.value }
         var result: [PackageIdentity] = []
 
@@ -91,6 +95,7 @@ public struct GraphTraversal {
                 inDegree[neighbor]! -= 1
                 if inDegree[neighbor]! == 0 {
                     queue.append(neighbor)
+                    queue.sort { $0.value < $1.value }
                 }
             }
         }

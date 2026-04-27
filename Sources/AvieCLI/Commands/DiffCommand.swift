@@ -65,10 +65,10 @@ struct DiffCommand: ParsableCommand {
         case "sarif":
             formatter = SARIFFormatter()
         case "terminal":
-            formatter = TerminalFormatter(useColor: !noColor)
+            formatter = AvieOutput.TerminalFormatter(useColor: !noColor)
         default:
             print("Unknown format: \(format). Falling back to terminal.")
-            formatter = TerminalFormatter(useColor: !noColor)
+            formatter = AvieOutput.TerminalFormatter(useColor: !noColor)
         }
 
         let output = try formatter.format(diff: diffResult)

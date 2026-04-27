@@ -14,6 +14,11 @@ func targetKind(from typeString: String) -> TargetDeclaration.TargetKind {
     }
 }
 
+/// Converts ManifestReader.ManifestData into TargetDeclaration objects.
+///
+/// Bug 7 Fix: ManifestTargetDependency is now a proper enum (discriminated union).
+/// The packageIdentity computed property on each case returns the cross-package
+/// identity string, or nil for intra-package target dependencies.
 func buildTargets(
     from manifestData: ManifestReader.ManifestData,
     rootIdentity: PackageIdentity
@@ -23,8 +28,11 @@ func buildTargets(
             id: targetData.name,
             kind: targetKind(from: targetData.type),
             packageIdentity: rootIdentity,
+            // Use the packageIdentity computed property from the new enum model.
+            // This correctly returns the cross-package reference for .product and
+            // .byName cases, and nil for .target (intra-package) cases.
             packageDependencies: targetData.dependencies.compactMap { dep in
-                dep.product?.package.lowercased()
+                dep.packageIdentity
             }.map(PackageIdentity.init)
         )
     }

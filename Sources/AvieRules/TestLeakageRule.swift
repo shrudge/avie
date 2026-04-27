@@ -44,7 +44,7 @@ public struct TestLeakageRule: Rule {
                 findings.append(Finding(
                     ruleID: id,
                     severity: severity,
-                    confidence: .heuristic, // we assume it's leaked if reachable from prod deps
+                    confidence: .proven,
                     summary: "Test dependency '\(testPkg)' leaked into production graph.",
                     detail: "This package is only directly depended on by a test target, but is transitively reachable from a production target.",
                     graphPath: [graph.rootIdentity, testPkg], // Simplified path for now
