@@ -81,11 +81,16 @@ struct AuditCommand: ParsableCommand {
 
         let engine = RuleEngine(graph: graph, config: config, targets: targets)
         let analysisResult = try engine.execute()
-        // TODO: Update formatters to ingest the full analysisResult instead of just findings
-        let allFindings = analysisResult.findings
-
+        
         let suppressionFile = (try? SuppressionFile.load(from: packageURL)) ?? SuppressionFile()
-        let filteredFindings = applySuppression(allFindings, suppressions: suppressionFile)
+        let filteredFindings = applySuppression(analysisResult.findings, suppressions: suppressionFile)
+        
+        // Rebuild the result with filtered findings
+        let finalResult = RuleEngine.AnalysisResult(
+            findings: filteredFindings,
+            graph: analysisResult.graph,
+            metadata: analysisResult.metadata
+        )
 
         let formatter: OutputFormatter
         switch format.lowercased() {
@@ -97,7 +102,7 @@ struct AuditCommand: ParsableCommand {
             formatter = TerminalFormatter(useColor: !noColor)
         }
 
-        let output = try formatter.format(filteredFindings)
+        let output = try formatter.format(result: finalResult)
         print(output)
 
         guard !noFail else { return }

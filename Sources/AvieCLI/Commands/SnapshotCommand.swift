@@ -57,12 +57,10 @@ struct SnapshotCommand: ParsableCommand {
         // 6. Run Rules
         let engine = RuleEngine(graph: graph, config: config, targets: targets)
         let analysisResult = try engine.execute()
-        // TODO: Update formatters to ingest the full analysisResult instead of just findings
-        let allFindings = analysisResult.findings
-
+        
         // 7. Filter Suppressions
         let suppressionFile = (try? SuppressionFile.load(from: packageURL)) ?? SuppressionFile()
-        let filteredFindings = applySuppression(allFindings, suppressions: suppressionFile)
+        let filteredFindings = applySuppression(analysisResult.findings, suppressions: suppressionFile)
 
         // 8. Serialize Snapshot
         let snapshot = GraphSnapshot(
