@@ -84,22 +84,25 @@ public struct GraphTraversal {
             }
         }
 
-        // Sort by identity string so output is deterministic across runs.
-        var queue = inDegree.filter { $0.value == 0 }.map { $0.key }.sorted { $0.value < $1.value }
+        var queue = inDegree.filter { $0.value == 0 }.map { $0.key }.sorted(by: { $0.value < $1.value })
         var result: [PackageIdentity] = []
-
-        while !queue.isEmpty {
-            let node = queue.removeFirst()
+        var head = 0 
+        
+        while head < queue.count {
+            let node = queue[head]
+            head += 1
             result.append(node)
+            
+            var newlyUnlocked: [PackageIdentity] = []
             for neighbor in graph.adjacency[node] ?? [] {
                 inDegree[neighbor]! -= 1
                 if inDegree[neighbor]! == 0 {
-                    queue.append(neighbor)
-                    queue.sort { $0.value < $1.value }
+                    newlyUnlocked.append(neighbor)
                 }
             }
+            newlyUnlocked.sort(by: { $0.value < $1.value })
+            queue.append(contentsOf: newlyUnlocked)
         }
-
         return result
     }
 
