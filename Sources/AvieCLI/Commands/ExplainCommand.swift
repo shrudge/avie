@@ -1,99 +1,55 @@
 import ArgumentParser
+import Foundation
 import AvieCore
+import AvieResolver
+import AvieGraph
 
 struct ExplainCommand: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "explain",
-        abstract: "Print a detailed explanation of a rule."
+        abstract: "Print a detailed explanation of why a package is in the graph."
     )
 
-    @Argument(help: "Rule ID to explain (e.g. AVIE001)")
-    var ruleID: String
+    @Argument(help: "The package identity to explain (e.g. swift-argument-parser)")
+    var packageName: String
+
+    @Option(name: .shortAndLong, help: "Path to package directory")
+    var path: String = "."
+    
+    @Flag(name: .long, help: "CI mode: disable network resolution")
+    var ci: Bool = false
 
     mutating func run() throws {
-        guard let rule = RuleID(rawValue: ruleID) else {
-            print("Unknown rule ID: \(ruleID)")
-            print("Available rules: \(RuleID.allCases.map(\.rawValue).joined(separator: ", "))")
-            throw ExitCode.failure
+        let packageURL = URL(fileURLWithPath: path).standardized
+        let resolver = SPMResolver(packageDirectory: packageURL, isCI: ci)
+        try resolver.validate()
+
+        let spmOutput = try resolver.resolve()
+        let packages = DependencyTransformer().transform(spmOutput)
+        let graph = try DependencyGraph(packages: packages)
+        let traversal = GraphTraversal(graph: graph)
+
+        let targetPackageID = PackageIdentity(packageName)
+        guard let targetPkg = graph.packages[targetPackageID] else {
+            print("Package '\(packageName)' not found in the dependency graph.")
+            throw ExitCode.failure // Consider failure? Or 0. We'll use failure so scripts can detect.
         }
 
-        switch rule {
-        case .unreachablePin:
-            printExplanation(
-                id: "AVIE001",
-                name: "Unreachable Pin",
-                severity: "error",
-                what: "Finds packages that exist in Package.resolved but are not reachable from the root package through any dependency chain.",
-                why: """
-                    Unreachable pins inflate resolution time, increase lockfile churn, and create \
-                    false confidence that a dependency is actively used. They often appear after \
-                    removing a dependency from Package.swift but forgetting to run `swift package update`.
-                    """,
-                fix: "Remove the package from your Package.swift dependencies array, then run `swift package resolve`.",
-                example: "root → (no path to) → stale-package"
-            )
-        case .testLeakage:
-            printExplanation(
-                id: "AVIE002",
-                name: "Test Leakage",
-                severity: "error",
-                what: "Finds test-only dependencies that are reachable from production targets.",
-                why: """
-                    Test-only packages (e.g. Quick, Nimble, SnapshotTesting) should never be \
-                    linked into production binaries. If a test dependency leaks into the production \
-                    graph, it increases binary size and may introduce security or licensing concerns.
-                    """,
-                fix: "Ensure test-only packages are only listed in .testTarget dependencies, not in .target dependencies.",
-                example: "root → prod-target → test-framework (should only be in test targets)"
-            )
-        case .excessiveFanout:
-            printExplanation(
-                id: "AVIE003",
-                name: "Excessive Fanout",
-                severity: "warning",
-                what: "Warns when a single direct dependency introduces more transitive dependencies than the configured threshold.",
-                why: """
-                    A dependency with high fanout dramatically increases your supply chain attack \
-                    surface and build times. Each transitive dependency is a potential point of \
-                    failure for version resolution conflicts.
-                    """,
-                fix: "Consider replacing the heavy dependency with a lighter alternative, or raise the threshold in .avie.json if the fanout is intentional.",
-                example: "root → heavy-framework → (15+ transitive packages)"
-            )
-        case .binaryTargetIntroduced:
-            printExplanation(
-                id: "AVIE004",
-                name: "Binary Target Introduced",
-                severity: "warning",
-                what: "Flags any package in the dependency graph that contains a binary target (.binaryTarget).",
-                why: """
-                    Binary targets are opaque — they cannot be audited for security vulnerabilities, \
-                    license compliance, or unexpected behavior. They may also limit platform support \
-                    and complicate debugging.
-                    """,
-                fix: "Verify the binary target is from a trusted source. If a source-based alternative exists, prefer it.",
-                example: "root → package-with-xcframework"
-            )
-        }
-    }
+        let paths = traversal.allPaths(from: graph.rootIdentity, to: targetPackageID, maxPaths: 10)
 
-    private func printExplanation(
-        id: String, name: String, severity: String,
-        what: String, why: String, fix: String, example: String
-    ) {
-        print("Rule: \(id) — \(name)")
-        print("Default Severity: \(severity)")
-        print("")
-        print("WHAT IT CHECKS:")
-        print("  \(what)")
-        print("")
-        print("WHY IT MATTERS:")
-        print("  \(why)")
-        print("")
-        print("HOW TO FIX:")
-        print("  \(fix)")
-        print("")
-        print("EXAMPLE GRAPH PATH:")
-        print("  \(example)")
+        print("Package: \(targetPkg.name)")
+        print("Version: \(targetPkg.version ?? "Unspecified")")
+        print("URL: \(targetPkg.url ?? "Local")")
+        print("───────────────────────────")
+        
+        if paths.isEmpty {
+            print("No path found from root to \(targetPkg.name).")
+        } else {
+            print("\(paths.count) path(s) to \(targetPkg.name) (showing up to 10):")
+            for (index, path) in paths.enumerated() {
+                let pathString = path.map { $0.value }.joined(separator: " → ")
+                print("  \(index + 1). \(pathString)")
+            }
+        }
     }
 }

@@ -68,7 +68,7 @@ final class AvieRulesTests: XCTestCase {
 
     // MARK: - AVIE002 Test Leakage Tests
 
-    func testAVIE002FiresOnLeakedTestDependency() throws {
+    func testAVIE002FiresOnTestLeakage() throws {
         let root = PackageIdentity("root")
         let prodDep = PackageIdentity("prod-lib")
         let testDep = PackageIdentity("test-lib")
@@ -82,7 +82,6 @@ final class AvieRulesTests: XCTestCase {
         let graph = try DependencyGraph(packages: packages)
         let traversal = GraphTraversal(graph: graph)
 
-        // Mock targets: root has a prod target that depends on prodDep, and a test target that depends on testDep
         let targets = [
             TargetDeclaration(id: "ProdTarget", kind: .regular, packageIdentity: root, packageDependencies: [prodDep]),
             TargetDeclaration(id: "TestTarget", kind: .test, packageIdentity: root, packageDependencies: [testDep])
@@ -97,9 +96,23 @@ final class AvieRulesTests: XCTestCase {
         XCTAssertTrue(findings.contains { $0.ruleID == .testLeakage })
     }
 
+    func testAVIE002SkipsGracefullyWithoutManifest() throws {
+        let root = PackageIdentity("root")
+        let packages: [PackageIdentity: ResolvedPackage] = [
+            root: ResolvedPackage(id: root, url: "", version: "", name: "root", directDependencies: [], isRoot: true, containsBinaryTarget: false)
+        ]
+        let graph = try DependencyGraph(packages: packages)
+        let traversal = GraphTraversal(graph: graph)
+        let rule = TestLeakageRule()
+        let context = RuleContext(configuration: AvieConfiguration(), targets: nil, suppressions: [])
+        
+        let findings = try rule.analyze(graph: graph, traversal: traversal, context: context)
+        XCTAssertTrue(findings.isEmpty)
+    }
+
     // MARK: - AVIE003 Excessive Fanout Tests
 
-    func testAVIE003FiresOnExcessiveFanout() throws {
+    func testAVIE003FiresWhenFanoutExceedsThreshold() throws {
         let root = PackageIdentity("root")
         let depPath = [PackageIdentity("dep1"), PackageIdentity("dep2"), PackageIdentity("dep3")]
         
@@ -126,6 +139,31 @@ final class AvieRulesTests: XCTestCase {
         XCTAssertEqual(findings.first?.affectedPackage, depPath[0])
     }
 
+    func testAVIE003RespectsConfiguredThreshold() throws {
+        let root = PackageIdentity("root")
+        let depPath = [PackageIdentity("dep1"), PackageIdentity("dep2"), PackageIdentity("dep3")]
+        
+        let packages: [PackageIdentity: ResolvedPackage] = [
+            root: ResolvedPackage(id: root, url: "", version: "", name: "root", directDependencies: [depPath[0]], isRoot: true, containsBinaryTarget: false),
+            depPath[0]: ResolvedPackage(id: depPath[0], url: "", version: "", name: "dep1", directDependencies: [depPath[1]], isRoot: false, containsBinaryTarget: false),
+            depPath[1]: ResolvedPackage(id: depPath[1], url: "", version: "", name: "dep2", directDependencies: [depPath[2]], isRoot: false, containsBinaryTarget: false),
+            depPath[2]: ResolvedPackage(id: depPath[2], url: "", version: "", name: "dep3", directDependencies: [], isRoot: false, containsBinaryTarget: false)
+        ]
+        
+        let graph = try DependencyGraph(packages: packages)
+        let traversal = GraphTraversal(graph: graph)
+
+        var config = AvieConfiguration()
+        config.rules.fanoutThreshold = 10 
+        
+        let rule = ExcessiveFanoutRule()
+        let context = RuleContext(configuration: config, targets: nil, suppressions: [])
+        
+        let findings = try rule.analyze(graph: graph, traversal: traversal, context: context)
+        
+        XCTAssertTrue(findings.isEmpty)
+    }
+
     // MARK: - AVIE004 Binary Target Introduced Tests
 
     func testAVIE004FiresOnBinaryTarget() throws {
@@ -148,5 +186,68 @@ final class AvieRulesTests: XCTestCase {
         XCTAssertFalse(findings.isEmpty)
         XCTAssertTrue(findings.contains { $0.ruleID == .binaryTargetIntroduced })
         XCTAssertEqual(findings.first?.affectedPackage, binaryDep)
+    }
+
+    // MARK: - Phase 2 Gate Extra Tests
+
+    func testSuppressionFileSilencesFindings() throws {
+        let finding = Finding(
+            ruleID: .excessiveFanout,
+            severity: .warning,
+            confidence: .proven,
+            summary: "Foo",
+            detail: "Bar",
+            graphPath: [],
+            suggestedAction: "Baz",
+            affectedPackage: PackageIdentity("foo")
+        )
+
+        var suppressionFile = SuppressionFile()
+        suppressionFile.suppressions.append(Suppression(key: finding.suppressionKey, reason: "Test", addedBy: "Me", addedAt: "Now"))
+
+        let filtered = applySuppression([finding], suppressions: suppressionFile)
+        XCTAssertTrue(filtered.isEmpty)
+    }
+
+    func testExitCode1WhenErrorFindingsPresent() throws {
+        let finding = Finding(
+            ruleID: .testLeakage,
+            severity: .error,
+            confidence: .proven,
+            summary: "Foo",
+            detail: "Bar",
+            graphPath: [],
+            suggestedAction: "Baz",
+            affectedPackage: PackageIdentity("foo")
+        )
+
+        let config = AvieConfiguration()
+        let errorRuleIDs = Set(config.rules.failOn)
+        let hasFailingErrors = [finding].contains { f in
+            f.severity == .error && errorRuleIDs.contains(f.ruleID)
+        }
+
+        XCTAssertTrue(hasFailingErrors)
+    }
+
+    func testExitCode0WhenOnlyWarnings() throws {
+        let finding = Finding(
+            ruleID: .excessiveFanout,
+            severity: .warning,
+            confidence: .proven,
+            summary: "Foo",
+            detail: "Bar",
+            graphPath: [],
+            suggestedAction: "Baz",
+            affectedPackage: PackageIdentity("foo")
+        )
+
+        let config = AvieConfiguration()
+        let errorRuleIDs = Set(config.rules.failOn)
+        let hasFailingErrors = [finding].contains { f in
+            f.severity == .error && errorRuleIDs.contains(f.ruleID)
+        }
+
+        XCTAssertFalse(hasFailingErrors)
     }
 }
