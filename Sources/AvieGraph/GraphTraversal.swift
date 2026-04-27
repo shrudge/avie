@@ -1,3 +1,4 @@
+import Foundation
 import AvieCore
 
 public class GraphTraversal {

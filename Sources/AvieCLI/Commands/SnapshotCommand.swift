@@ -55,6 +55,7 @@ struct SnapshotCommand: ParsableCommand {
         let targets = manifestData.map { buildTargets(from: $0, rootIdentity: graph.rootIdentity) }
 
         // 6. Run Rules
+        let engine = RuleEngine(graph: graph, config: config, targets: targets)
         let analysisResult = try engine.execute()
         // TODO: Update formatters to ingest the full analysisResult instead of just findings
         let allFindings = analysisResult.findings

@@ -16,6 +16,7 @@ import AvieCore
 ///
 /// The previous model used struct keys that only matched one variant.
 /// The new model handles all three variants via custom Codable decoding.
+public final class ManifestReader {
     private let packageDirectory: URL
     private let isCI: Bool
 

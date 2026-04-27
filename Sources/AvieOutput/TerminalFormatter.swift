@@ -2,7 +2,7 @@ import AvieCore
 import AvieDiff
 
 public protocol OutputFormatter {
-    func format(_ findings: [Finding]) throws -> String
+    func format(result: RuleEngine.AnalysisResult) throws -> String
     func format(diff: DiffEngine.DiffResult) throws -> String
 }
 
@@ -14,12 +14,24 @@ public struct TerminalFormatter: OutputFormatter {
         self.useColor = useColor
     }
 
-    public func format(_ findings: [Finding]) throws -> String {
-        guard !findings.isEmpty else {
-            return "\u{001B}[32m✓ No issues found. The dependency graph is clean.\u{001B}[0m\n"
-        }
-
+    public func format(result: RuleEngine.AnalysisResult) throws -> String {
         var output = ""
+        
+        let bold = useColor ? "\u{001B}[1m" : ""
+        let dim = useColor ? "\u{001B}[2m" : ""
+        let reset = useColor ? "\u{001B}[0m" : ""
+        let green = useColor ? "\u{001B}[32m" : ""
+
+        output += "\(bold)Avie Dependency Graph Audit\(reset)\n"
+        output += "\(dim)─────────────────────────────\(reset)\n"
+        output += "\(dim)Packages: \(result.metadata.totalPackages) total, \(result.metadata.directDependencies) direct\(reset)\n"
+        output += "\(dim)Max depth: \(result.metadata.transitiveDepth)\(reset)\n\n"
+
+        let findings = result.findings
+
+        guard !findings.isEmpty else {
+            return output + "\(green)✓ No issues found. The dependency graph is clean.\(reset)\n"
+        }
         
         let errors = findings.filter { $0.severity == .error }
         let warnings = findings.filter { $0.severity == .warning }
