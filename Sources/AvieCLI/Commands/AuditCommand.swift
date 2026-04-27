@@ -21,6 +21,9 @@ struct AuditCommand: ParsableCommand {
     @Flag(name: .long, help: "CI mode: disable network resolution")
     var ci: Bool = false
 
+    @Flag(name: .long, help: "Skip binary target detection (fast mode)")
+    var skipBinaryDetection: Bool = false
+
     @Flag(name: .long, help: "Disable color output")
     var noColor: Bool = false
 
@@ -47,12 +50,17 @@ struct AuditCommand: ParsableCommand {
             throw ExitCode(2)
         }
 
-        // Bug 4: Detect binary targets via manifest inspection (Option A).
-        // Runs dump-package in each dependency's checkout path.
-        let binaryTargetIDs = BinaryTargetDetector.detect(
-            in: spmOutput,
-            swiftExecutable: SwiftToolFinder.path
-        )
+        let binaryTargetIDs: Set<PackageIdentity>
+        if skipBinaryDetection {
+            binaryTargetIDs = []
+        } else {
+            // Bug 4: Detect binary targets via manifest inspection (Option A).
+            // Runs dump-package in each dependency's checkout path.
+            binaryTargetIDs = BinaryTargetDetector.detect(
+                in: spmOutput,
+                swiftExecutable: SwiftToolFinder.path
+            )
+        }
 
         // Bug 5: DependencyTransformer now uses URL-derived identity.
         let packages = DependencyTransformer().transform(spmOutput, binaryTargetIDs: binaryTargetIDs)

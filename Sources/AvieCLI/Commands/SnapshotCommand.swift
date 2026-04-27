@@ -24,6 +24,9 @@ struct SnapshotCommand: ParsableCommand {
     @Flag(name: .long, help: "CI mode: disable network resolution")
     var ci: Bool = false
 
+    @Flag(name: .long, help: "Skip binary target detection (fast mode)")
+    var skipBinaryDetection: Bool = false
+
     mutating func run() throws {
         let packageURL = URL(fileURLWithPath: path).standardized
 
@@ -34,11 +37,16 @@ struct SnapshotCommand: ParsableCommand {
         // 2. Resolve
         let spmOutput = try resolver.resolve()
 
-        // Bug 4: Detect binary targets via manifest inspection in each checkout.
-        let binaryTargetIDs = BinaryTargetDetector.detect(
-            in: spmOutput,
-            swiftExecutable: SwiftToolFinder.path
-        )
+        let binaryTargetIDs: Set<PackageIdentity>
+        if skipBinaryDetection {
+            binaryTargetIDs = []
+        } else {
+            // Bug 4: Detect binary targets via manifest inspection in each checkout.
+            binaryTargetIDs = BinaryTargetDetector.detect(
+                in: spmOutput,
+                swiftExecutable: SwiftToolFinder.path
+            )
+        }
 
         // Bug 5: URL-derived identity via updated DependencyTransformer.
         let packages = DependencyTransformer().transform(spmOutput, binaryTargetIDs: binaryTargetIDs)
