@@ -74,11 +74,11 @@ public final class SPMResolver {
     }
 
     public func resolve() throws -> SPMDependencyOutput {
-        var arguments = ["package", "show-dependencies", "--format", "json"]
-
+        var arguments = ["package"]
         if isCI {
             arguments.append("--disable-automatic-resolution")
         }
+        arguments.append(contentsOf: ["show-dependencies", "--format", "json"])
 
         let process = Process()
         // Bug 6 Fix: resolve swift from PATH instead of hardcoding /usr/bin/swift
@@ -97,9 +97,12 @@ public final class SPMResolver {
             throw ResolverError.commandFailed(exitCode: -1, stderr: error.localizedDescription)
         }
 
+        // Drain pipes BEFORE waiting to prevent OS buffer deadlock
+        let outputData = stdout.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
+        
         process.waitUntilExit()
 
-        let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
         let stderrString = String(data: stderrData, encoding: .utf8) ?? ""
 
         guard process.terminationStatus == 0 else {
@@ -110,7 +113,6 @@ public final class SPMResolver {
                                                stderr: stderrString)
         }
 
-        let outputData = stdout.fileHandleForReading.readDataToEndOfFile()
         let rawOutput = String(data: outputData, encoding: .utf8) ?? ""
 
         do {
