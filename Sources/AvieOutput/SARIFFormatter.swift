@@ -28,7 +28,7 @@ public struct SARIFFormatter: OutputFormatter {
             "tool": [
                 "driver": [
                     "name": "Avie",
-                    "version": "1.0.0",
+                    "version": avieToolVersion,
                     "rules": [] as [[String: Any]]
                 ]
             ],

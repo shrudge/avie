@@ -1,3 +1,5 @@
+# TODO: Fill in url, sha256, and homepage before publishing to a Homebrew tap.
+# Run `brew audit --new-formula Formula/avie.rb` to validate after filling in.
 class Avie < Formula
   desc "Swift package graph diagnostics tool"
   homepage "https://github.com/yourusername/avie"

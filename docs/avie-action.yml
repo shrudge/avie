@@ -17,7 +17,11 @@ jobs:
       - uses: actions/checkout@v4
 
       - name: Install Avie
-        run: brew install yourtap/tap/avie
+        run: |
+          # TODO: replace with your Homebrew tap once the tap is live
+          # brew install <your-tap>/avie
+          swift build -c release --package-path $GITHUB_WORKSPACE
+          echo "$GITHUB_WORKSPACE/.build/release" >> $GITHUB_PATH
 
       # Capture base branch snapshot
       - name: Snapshot base branch
