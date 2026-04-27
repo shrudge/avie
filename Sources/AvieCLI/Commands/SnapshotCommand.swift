@@ -44,19 +44,7 @@ struct SnapshotCommand: ParsableCommand {
 
         // 5. Config/Targets
         let config = (try? ConfigurationLoader.load(from: packageURL)) ?? AvieConfiguration()
-        var targets: [TargetDeclaration]? = nil
-        if let data = manifestData {
-            targets = data.targets.map { targetData in
-                TargetDeclaration(
-                    id: targetData.name,
-                    kind: targetKind(from: targetData.type),
-                    packageIdentity: graph.rootIdentity,
-                    packageDependencies: targetData.dependencies.compactMap { dep in
-                        dep.product?.package.lowercased()
-                    }.map(PackageIdentity.init)
-                )
-            }
-        }
+        let targets = manifestData.map { buildTargets(from: $0, rootIdentity: graph.rootIdentity) }
 
         // 6. Run Rules
         let engine = RuleEngine(graph: graph, config: config, targets: targets)
@@ -72,7 +60,7 @@ struct SnapshotCommand: ParsableCommand {
             rootIdentity: graph.rootIdentity,
             findings: filteredFindings,
             gitRef: gitRef,
-            avieVersion: Avie.configuration.version
+            avieVersion: avieToolVersion
         )
         
         let encoder = JSONEncoder()
@@ -85,14 +73,4 @@ struct SnapshotCommand: ParsableCommand {
         print("Snapshot written to \(output)")
     }
     
-    private func targetKind(from typeString: String) -> TargetDeclaration.TargetKind {
-        switch typeString {
-        case "executable": return .executable
-        case "test": return .test
-        case "plugin": return .plugin
-        case "macro": return .macro
-        case "system": return .system
-        default: return .regular
-        }
-    }
 }
