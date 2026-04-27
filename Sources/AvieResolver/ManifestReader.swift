@@ -109,10 +109,11 @@ public final class ManifestReader {
         let process = Process()
         // Bug 6 Fix: resolve swift from PATH
         process.executableURL = URL(fileURLWithPath: SwiftToolFinder.path)
-        var arguments = ["package", "dump-package"]
+        var arguments = ["package"]
         if isCI {
             arguments.append("--disable-automatic-resolution")
         }
+        arguments.append("dump-package")
         process.arguments = arguments
         process.currentDirectoryURL = packageDirectory
 
@@ -122,16 +123,19 @@ public final class ManifestReader {
         process.standardError = stderr
 
         try process.run()
+        
+        // Drain pipes BEFORE waiting
+        let data = stdout.fileHandleForReading.readDataToEndOfFile()
+        let stderrData = stderr.fileHandleForReading.readDataToEndOfFile()
+        
         process.waitUntilExit()
 
         guard process.terminationStatus == 0 else {
-            let err = String(data: stderr.fileHandleForReading.readDataToEndOfFile(),
-                             encoding: .utf8) ?? ""
+            let err = String(data: stderrData, encoding: .utf8) ?? ""
             throw NSError(domain: "AvieResolver", code: 1,
                           userInfo: [NSLocalizedDescriptionKey: "dump-package failed: \(err)"])
         }
 
-        let data = stdout.fileHandleForReading.readDataToEndOfFile()
         return try JSONDecoder().decode(ManifestData.self, from: data)
     }
 }
