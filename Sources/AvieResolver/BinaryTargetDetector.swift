@@ -72,8 +72,11 @@ public struct BinaryTargetDetector {
         process.standardOutput = stdoutPipe
         process.standardError = stderrPipe
 
+        let data: Data
         do {
             try process.run()
+            // Drain pipe BEFORE waiting
+            data = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
             process.waitUntilExit()
         } catch {
             return false
@@ -81,7 +84,6 @@ public struct BinaryTargetDetector {
 
         guard process.terminationStatus == 0 else { return false }
 
-        let data = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
         guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let targets = json["targets"] as? [[String: Any]] else {
             return false
