@@ -15,41 +15,61 @@ struct AuditCommand: ParsableCommand {
     @Option(name: .shortAndLong, help: "Path to package directory")
     var path: String = "."
 
+    @Option(name: .long, help: "Output format (terminal, json, sarif)")
+    var format: String = "terminal"
+
     @Flag(name: .long, help: "CI mode: disable network resolution")
     var ci: Bool = false
 
-    @Option(name: .long, help: "Output format (terminal, json, sarif)")
-    var format: String = "terminal"
+    @Flag(name: .long, help: "Disable color output")
+    var noColor: Bool = false
+
+    @Flag(name: .long, help: "Exit 0 even if error-severity findings are present")
+    var noFail: Bool = false
 
     mutating func run() throws {
         let packageURL = URL(fileURLWithPath: path).standardized
 
+        // Exit 2 — fatal resolver/environment error
         let resolver = SPMResolver(packageDirectory: packageURL, isCI: ci)
-        try resolver.validate()
+        do {
+            try resolver.validate()
+        } catch {
+            fputs("error: \(error.localizedDescription)\n", stderr)
+            throw ExitCode(2)
+        }
 
-        let spmOutput = try resolver.resolve()
+        let spmOutput: SPMDependencyOutput
+        do {
+            spmOutput = try resolver.resolve()
+        } catch {
+            fputs("error: \(error.localizedDescription)\n", stderr)
+            throw ExitCode(2)
+        }
+
         let packages = DependencyTransformer().transform(spmOutput)
 
-        let graph = try DependencyGraph(packages: packages)
-        
-        let manifestReader = ManifestReader(packageDirectory: packageURL)
-        let manifestData = try? manifestReader.read() // Graceful failure if parse fails
-        
-        let config = (try? ConfigurationLoader.load(from: packageURL)) ?? AvieConfiguration()
-        var targets: [TargetDeclaration]? = nil
-        
-        if let data = manifestData {
-            targets = data.targets.map { targetData in
-                TargetDeclaration(
-                    id: targetData.name,
-                    kind: targetKind(from: targetData.type),
-                    packageIdentity: graph.rootIdentity,
-                    packageDependencies: targetData.dependencies.compactMap { dep in
-                        dep.product?.package.lowercased()
-                    }.map(PackageIdentity.init)
-                )
-            }
+        let graph: DependencyGraph
+        do {
+            graph = try DependencyGraph(packages: packages)
+        } catch {
+            fputs("error: \(error.localizedDescription)\n", stderr)
+            throw ExitCode(2)
         }
+
+        let manifestReader = ManifestReader(packageDirectory: packageURL)
+        let manifestData = try? manifestReader.read()
+
+        // Exit 3 — configuration error
+        let config: AvieConfiguration
+        do {
+            config = try ConfigurationLoader.load(from: packageURL)
+        } catch {
+            fputs("error: .avie.json is malformed — \(error.localizedDescription)\n", stderr)
+            throw ExitCode(3)
+        }
+
+        let targets = manifestData.map { buildTargets(from: $0, rootIdentity: graph.rootIdentity) }
 
         let engine = RuleEngine(graph: graph, config: config, targets: targets)
         let allFindings = try engine.execute()
@@ -63,34 +83,23 @@ struct AuditCommand: ParsableCommand {
             formatter = JSONFormatter()
         case "sarif":
             formatter = SARIFFormatter()
-        case "terminal":
-            formatter = TerminalFormatter()
         default:
-            print("Unknown format: \(format). Falling back to terminal.")
-            formatter = TerminalFormatter()
+            formatter = TerminalFormatter(useColor: !noColor)
         }
 
         let output = try formatter.format(filteredFindings)
         print(output)
 
+        guard !noFail else { return }
+
+        // Exit 1 — error-severity findings on a configured failOn rule
         let errorRuleIDs = Set(config.rules.failOn)
         let hasFailingErrors = filteredFindings.contains { finding in
             finding.severity == .error && errorRuleIDs.contains(finding.ruleID)
         }
 
         if hasFailingErrors {
-            throw ExitCode.failure
-        }
-    }
-    
-    private func targetKind(from typeString: String) -> TargetDeclaration.TargetKind {
-        switch typeString {
-        case "executable": return .executable
-        case "test": return .test
-        case "plugin": return .plugin
-        case "macro": return .macro
-        case "system": return .system
-        default: return .regular
+            throw ExitCode(1)
         }
     }
 }
