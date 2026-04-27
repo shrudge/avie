@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieGraph.build/master.swiftdeps"
+  },
+  "/Users/meetbalani/dev/Avie/Sources/AvieGraph/DependencyGraph.swift": {
+    "dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieGraph.build/DependencyGraph.d",
+    "object": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieGraph.build/DependencyGraph.swift.o",
+    "swiftmodule": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieGraph.build/DependencyGraph~partial.swiftmodule",
+    "swift-dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieGraph.build/DependencyGraph.swiftdeps",
+    "diagnostics": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieGraph.build/DependencyGraph.dia"
+  }
+}

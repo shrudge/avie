@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutput.build/master.swiftdeps"
+  },
+  "/Users/meetbalani/dev/Avie/Sources/AvieOutput/OutputFormatter.swift": {
+    "dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutput.build/OutputFormatter.d",
+    "object": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutput.build/OutputFormatter.swift.o",
+    "swiftmodule": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutput.build/OutputFormatter~partial.swiftmodule",
+    "swift-dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutput.build/OutputFormatter.swiftdeps",
+    "diagnostics": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutput.build/OutputFormatter.dia"
+  }
+}

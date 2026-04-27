@@ -1,0 +1,3 @@
+module AvieCore {
+    header "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCore.build/include/AvieCore-Swift.h"
+}

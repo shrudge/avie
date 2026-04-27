@@ -1,0 +1,3 @@
+module AvieRules {
+    header "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieRules.build/include/AvieRules-Swift.h"
+}

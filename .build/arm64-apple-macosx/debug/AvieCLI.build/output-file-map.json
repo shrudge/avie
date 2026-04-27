@@ -1,0 +1,19 @@
+{
+  "": {
+    "swift-dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCLI.build/master.swiftdeps"
+  },
+  "/Users/meetbalani/dev/Avie/Sources/AvieCLI/AvieCommand.swift": {
+    "dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCLI.build/AvieCommand.d",
+    "object": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCLI.build/AvieCommand.swift.o",
+    "swiftmodule": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCLI.build/AvieCommand~partial.swiftmodule",
+    "swift-dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCLI.build/AvieCommand.swiftdeps",
+    "diagnostics": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCLI.build/AvieCommand.dia"
+  },
+  "/Users/meetbalani/dev/Avie/Sources/AvieCLI/Commands/AuditCommand.swift": {
+    "dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCLI.build/AuditCommand.d",
+    "object": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCLI.build/AuditCommand.swift.o",
+    "swiftmodule": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCLI.build/AuditCommand~partial.swiftmodule",
+    "swift-dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCLI.build/AuditCommand.swiftdeps",
+    "diagnostics": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieCLI.build/AuditCommand.dia"
+  }
+}

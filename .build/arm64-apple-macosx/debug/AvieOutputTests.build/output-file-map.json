@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutputTests.build/master.swiftdeps"
+  },
+  "/Users/meetbalani/dev/Avie/Tests/AvieOutputTests/AvieOutputTests.swift": {
+    "dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutputTests.build/AvieOutputTests.d",
+    "object": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutputTests.build/AvieOutputTests.swift.o",
+    "swiftmodule": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutputTests.build/AvieOutputTests~partial.swiftmodule",
+    "swift-dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutputTests.build/AvieOutputTests.swiftdeps",
+    "diagnostics": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/AvieOutputTests.build/AvieOutputTests.dia"
+  }
+}

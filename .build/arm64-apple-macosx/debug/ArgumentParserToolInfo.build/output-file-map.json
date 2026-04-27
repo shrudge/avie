@@ -1,0 +1,12 @@
+{
+  "": {
+    "swift-dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/ArgumentParserToolInfo.build/master.swiftdeps"
+  },
+  "/Users/meetbalani/dev/Avie/.build/checkouts/swift-argument-parser/Sources/ArgumentParserToolInfo/ToolInfo.swift": {
+    "dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/ArgumentParserToolInfo.build/ToolInfo.d",
+    "object": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/ArgumentParserToolInfo.build/ToolInfo.swift.o",
+    "swiftmodule": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/ArgumentParserToolInfo.build/ToolInfo~partial.swiftmodule",
+    "swift-dependencies": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/ArgumentParserToolInfo.build/ToolInfo.swiftdeps",
+    "diagnostics": "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/ArgumentParserToolInfo.build/ToolInfo.dia"
+  }
+}

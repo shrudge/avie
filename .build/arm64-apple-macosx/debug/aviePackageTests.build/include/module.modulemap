@@ -1,0 +1,3 @@
+module aviePackageTests {
+    header "/Users/meetbalani/dev/Avie/.build/arm64-apple-macosx/debug/aviePackageTests.build/include/aviePackageTests-Swift.h"
+}
