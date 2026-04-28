@@ -18,6 +18,9 @@ struct Avie: ParsableCommand {
         let process = Process()
         process.executableURL = URL(fileURLWithPath: "/bin/bash")
         process.arguments = [scriptPath]
+        var env = ProcessInfo.processInfo.environment
+        env["COLUMNS"] = "120"
+        process.environment = env
         
         let pipe = Pipe()
         process.standardOutput = pipe
@@ -27,7 +30,8 @@ struct Avie: ParsableCommand {
             process.waitUntilExit()
             let data = pipe.fileHandleForReading.readDataToEndOfFile()
             if let output = String(data: data, encoding: .utf8), !output.isEmpty {
-                return "\n" + output.trimmingCharacters(in: .whitespacesAndNewlines) + "\n\n"
+                let processedOutput = output.replacingOccurrences(of: "placeholder", with: avieToolVersion)
+                return "\n" + processedOutput.trimmingCharacters(in: .whitespacesAndNewlines) + "\n\n"
             }
         } catch {
             return "Avie Version: \(avieToolVersion)"
