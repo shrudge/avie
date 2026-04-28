@@ -8,6 +8,11 @@ on:
 jobs:
   build-and-release:
     runs-on: macos-latest
+
+    permissions:
+      contents: write
+      pull-requests: read
+
     outputs:
       hash: ${{ steps.get_hash.outputs.sha }}
     steps:
