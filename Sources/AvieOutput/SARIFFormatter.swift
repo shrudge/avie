@@ -79,8 +79,16 @@ public struct SARIFFormatter: OutputFormatter {
         let dummyGraph = try DependencyGraph(packages: [rootID: rootPkg])
         let result = RuleEngine.AnalysisResult(
             findings: diff.newFindings,
+            executedRules: [],
+            skippedRules: [:],
             graph: dummyGraph,
-            metadata: .init(totalPackages: 0, directDependencies: 0, transitiveDepth: 0)
+            metadata: .init(
+                totalPackages: 0,
+                directDependencies: 0,
+                transitiveDepth: 0,
+                analysisDate: Date(),
+                packageDirectory: ""
+            )
         )
         return try format(result)
     }

@@ -96,6 +96,8 @@ struct AuditCommand: ParsableCommand {
         // Rebuild the result with filtered findings
         let finalResult = RuleEngine.AnalysisResult(
             findings: filteredFindings,
+            executedRules: analysisResult.executedRules,
+            skippedRules: analysisResult.skippedRules,
             graph: analysisResult.graph,
             metadata: analysisResult.metadata
         )

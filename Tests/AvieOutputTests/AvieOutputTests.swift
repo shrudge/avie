@@ -48,8 +48,16 @@ final class AvieOutputTests: XCTestCase {
 
         return RuleEngine.AnalysisResult(
             findings: mockFindings,
+            executedRules: [.unreachablePin, .excessiveFanout],
+            skippedRules: [:],
             graph: graph,
-            metadata: .init(totalPackages: 3, directDependencies: 2, transitiveDepth: 1)
+            metadata: .init(
+                totalPackages: 3,
+                directDependencies: 2,
+                transitiveDepth: 1,
+                analysisDate: Date(),
+                packageDirectory: "/tmp/mock"
+            )
         )
     }
     
