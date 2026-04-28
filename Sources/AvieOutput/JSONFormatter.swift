@@ -9,6 +9,8 @@ public struct JSONFormatter: OutputFormatter {
     public struct AuditReport: Codable {
         public let schemaVersion: String
         public let metadata: RuleEngine.AnalysisResult.Metadata
+        public let executedRules: [String]
+        public let skippedRules: [String: String]
         public let findings: [Finding]
         public let summary: Summary
 
@@ -24,9 +26,16 @@ public struct JSONFormatter: OutputFormatter {
         let errors = result.findings.filter { $0.severity == .error }.count
         let warnings = result.findings.filter { $0.severity == .warning }.count
 
+        var skippedMap: [String: String] = [:]
+        for (key, value) in result.skippedRules {
+            skippedMap[key.rawValue] = value
+        }
+
         let report = AuditReport(
             schemaVersion: "1.0",
             metadata: result.metadata,
+            executedRules: result.executedRules.map { $0.rawValue },
+            skippedRules: skippedMap,
             findings: result.findings,
             summary: AuditReport.Summary(
                 totalPackages: result.metadata.totalPackages,
