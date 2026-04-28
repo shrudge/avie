@@ -15,16 +15,17 @@ jobs:
       hash: ${{ steps.get_hash.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
+      
       - name: Inject Version
         run: |
-          # Strip the 'v' from v1.0.4 to get just 1.0.4
+          # Strip the 'v' from the tag to get the clean semantic version
           CLEAN_VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          # Overwrite the hardcoded 1.0.0 constant with the actual tag version
           echo "public let avieToolVersion = \"$CLEAN_VERSION\"" > Sources/AvieCore/Version.swift
 
       - name: Build release binary
         run: swift build -c release --disable-sandbox
 
-      # --- NEW STEP: Create the archive Homebrew needs ---
       - name: Create Archive
         run: tar -czf avie.tar.gz -C .build/release avie
 
@@ -32,7 +33,6 @@ jobs:
         id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          # Change this from .build/release/avie to the archive
           files: avie.tar.gz 
           generate_release_notes: true
         env:
@@ -43,12 +43,14 @@ jobs:
         run: |
           echo "sha=$(shasum -a 256 avie.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
 
-      
-
   update-tap:
     needs: build-and-release
     runs-on: ubuntu-latest
     steps:
+      # --- THE FIX: Wait for the new binary to propagate globally ---
+      - name: Wait for Release Propagation
+        run: sleep 45
+
       - name: Update Homebrew Formula
         uses: mislav/bump-homebrew-formula-action@v3
         with:
