@@ -115,7 +115,8 @@ public struct TerminalFormatter: OutputFormatter {
         if !diff.newFindings.isEmpty {
             lines.append("\(red)\(bold)New violations introduced:\(reset)")
             for finding in diff.newFindings {
-                lines.append(formatFinding(finding, prefix: "\(red)error\(reset)", dim: dim, reset: reset, cyan: cyan))
+                let sevColor = finding.severity == .error ? red : (finding.severity == .warning ? yellow : cyan)
+                lines.append(formatFinding(finding, prefix: "\(sevColor)\(finding.severity.rawValue)\(reset)", dim: dim, reset: reset, cyan: cyan))
             }
             lines.append("")
         }
