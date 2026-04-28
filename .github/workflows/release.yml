@@ -14,6 +14,12 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # This reads the Git tag (e.g., v1.0.2), strips the 'v', and injects it into your code
+      - name: Inject Version String
+        run: |
+          VERSION="${GITHUB_REF_NAME#v}"
+          sed -i '' "s/public let avieToolVersion = .*/public let avieToolVersion = \"$VERSION\"/" Sources/AvieCore/Version.swift
+
       - name: Build release binary
         run: swift build -c release --disable-sandbox
 
