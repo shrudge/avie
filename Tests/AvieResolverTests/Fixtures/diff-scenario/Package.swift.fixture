@@ -1,0 +1,17 @@
+// swift-tools-version: 5.9
+import PackageDescription
+
+let package = Package(
+    name: "diff-scenario",
+    dependencies: [
+        .package(url: "https://github.com/apple/swift-algorithms", from: "1.0.0")
+    ],
+    targets: [
+        .executableTarget(
+            name: "DiffScenario",
+            dependencies: [
+                .product(name: "Algorithms", package: "swift-algorithms")
+            ]
+        )
+    ]
+)
