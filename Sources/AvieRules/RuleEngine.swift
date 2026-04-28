@@ -20,11 +20,15 @@ public struct RuleEngine {
 
     public struct AnalysisResult {
         public let findings: [Finding]
+        public let executedRules: [RuleID]
+        public let skippedRules: [RuleID: String]
         public let graph: DependencyGraph
         public let metadata: Metadata
 
-        public init(findings: [Finding], graph: DependencyGraph, metadata: Metadata) {
+        public init(findings: [Finding], executedRules: [RuleID], skippedRules: [RuleID: String], graph: DependencyGraph, metadata: Metadata) {
             self.findings = findings
+            self.executedRules = executedRules
+            self.skippedRules = skippedRules
             self.graph = graph
             self.metadata = metadata
         }
@@ -33,11 +37,15 @@ public struct RuleEngine {
             public let totalPackages: Int
             public let directDependencies: Int
             public let transitiveDepth: Int
+            public let analysisDate: Date
+            public let packageDirectory: String
 
-            public init(totalPackages: Int, directDependencies: Int, transitiveDepth: Int) {
+            public init(totalPackages: Int, directDependencies: Int, transitiveDepth: Int, analysisDate: Date, packageDirectory: String) {
                 self.totalPackages = totalPackages
                 self.directDependencies = directDependencies
                 self.transitiveDepth = transitiveDepth
+                self.analysisDate = analysisDate
+                self.packageDirectory = packageDirectory
             }
         }
     }
@@ -50,11 +58,21 @@ public struct RuleEngine {
         )
 
         var allFindings: [Finding] = []
+        var executed: [RuleID] = []
+        var skipped: [RuleID: String] = [:]
+        
         let enabledRules = instantiateRules(from: config.rules.enabled)
 
         for rule in enabledRules {
+            // Explicitly handle rules that require manifest data
+            if rule.id == .testLeakage && targets == nil {
+                skipped[.testLeakage] = "Manifest data unavailable (dump-package failed)"
+                continue
+            }
+            
             let findings = try rule.analyze(graph: graph, traversal: traversal, context: context)
             allFindings.append(contentsOf: findings)
+            executed.append(rule.id)
         }
 
         let depth = traversal.maximumDepth(from: graph.rootIdentity)
@@ -62,11 +80,15 @@ public struct RuleEngine {
 
         return AnalysisResult(
             findings: allFindings,
+            executedRules: executed,
+            skippedRules: skipped,
             graph: graph,
             metadata: AnalysisResult.Metadata(
                 totalPackages: graph.packages.count,
                 directDependencies: directDeps,
-                transitiveDepth: depth
+                transitiveDepth: depth,
+                analysisDate: Date(),
+                packageDirectory: config.packageDirectory
             )
         )
     }
