@@ -1,8 +1,8 @@
-import Foundation
 import AvieCore
+import AvieDiff
 import AvieGraph
 import AvieRules
-import AvieDiff
+import Foundation
 
 /// Produces SARIF 2.1.0 output for GitHub Code Scanning integration.
 ///
@@ -18,9 +18,9 @@ public struct SARIFFormatter: OutputFormatter {
         let results = findings.map { finding -> [String: Any] in
             let level: String
             switch finding.severity {
-            case .error:   level = "error"
+            case .error: level = "error"
             case .warning: level = "warning"
-            case .note:    level = "note"
+            case .note: level = "note"
             }
 
             return [
@@ -31,10 +31,10 @@ public struct SARIFFormatter: OutputFormatter {
                     [
                         "physicalLocation": [
                             "artifactLocation": ["uri": "Package.swift"],
-                            "region": ["startLine": 1]
+                            "region": ["startLine": 1],
                         ]
                     ]
-                ] as [[String: Any]]
+                ] as [[String: Any]],
             ]
         }
 
@@ -46,7 +46,7 @@ public struct SARIFFormatter: OutputFormatter {
                 "name": meta.name,
                 "shortDescription": ["text": meta.shortDescription],
                 "fullDescription": ["text": meta.fullDescription],
-                "defaultConfiguration": ["level": meta.sarifLevel]
+                "defaultConfiguration": ["level": meta.sarifLevel],
             ]
         }
 
@@ -55,27 +55,31 @@ public struct SARIFFormatter: OutputFormatter {
                 "driver": [
                     "name": "Avie",
                     "version": avieToolVersion,
-                    "informationUri": "https://github.com/TODO/avie",
-                    "rules": rules
+                    "informationUri": "https://github.com/shrudge/avie",
+                    "rules": rules,
                 ]
             ],
-            "results": results
+            "results": results,
         ]
 
         let sarif: [String: Any] = [
             "version": "2.1.0",
-            "$schema": "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
-            "runs": [run]
+            "$schema":
+                "https://raw.githubusercontent.com/oasis-tcs/sarif-spec/master/Schemata/sarif-schema-2.1.0.json",
+            "runs": [run],
         ]
 
-        let data = try JSONSerialization.data(withJSONObject: sarif, options: [.prettyPrinted, .sortedKeys])
+        let data = try JSONSerialization.data(
+            withJSONObject: sarif, options: [.prettyPrinted, .sortedKeys])
         return String(data: data, encoding: .utf8) ?? "{}"
     }
 
     public func format(_ diff: DiffEngine.DiffResult) throws -> String {
         // Wrap new findings in a dummy result for SARIF formatting
         let rootID = PackageIdentity("diff")
-        let rootPkg = ResolvedPackage(id: rootID, url: "", version: "0.0.0", name: "diff", directDependencies: [], isRoot: true, containsBinaryTarget: false)
+        let rootPkg = ResolvedPackage(
+            id: rootID, url: "", version: "0.0.0", name: "diff", directDependencies: [],
+            isRoot: true, containsBinaryTarget: false)
         let dummyGraph = try DependencyGraph(packages: [rootID: rootPkg])
         let result = RuleEngine.AnalysisResult(
             findings: diff.newFindings,

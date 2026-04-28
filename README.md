@@ -50,13 +50,13 @@ Avie catches all four. Its findings are **graph-provable**: derivable purely fro
 ### Homebrew
 
 ```sh
-brew install yourtap/tap/avie
+brew install shrudge/tap/avie
 ```
 
 ### Swift Package Manager (from source)
 
 ```sh
-git clone https://github.com/TODO/avie.git
+git clone https://github.com/shrudge/avie.git
 cd avie
 swift build -c release
 cp .build/release/avie /usr/local/bin/avie
@@ -67,7 +67,7 @@ cp .build/release/avie /usr/local/bin/avie
 Add to your `Package.swift`:
 
 ```swift
-.package(url: "https://github.com/TODO/avie.git", from: "1.0.0")
+.package(url: "https://github.com/shrudge/avie.git", from: "1.0.0")
 ```
 
 Then invoke:
@@ -481,7 +481,7 @@ jobs:
           fetch-depth: 0   # Required for git checkout of base branch below
 
       - name: Install Avie
-        run: brew install yourtap/tap/avie
+        run: brew install shrudge/tap/avie
 
       # Capture base branch snapshot
       - name: Snapshot base branch
