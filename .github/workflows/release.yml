@@ -8,28 +8,41 @@ on:
 jobs:
   build-and-release:
     runs-on: macos-latest
-    permissions:
-      contents: write
-    
+    outputs:
+      hash: ${{ steps.get_hash.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
-
-      - name: Inject Version String
-        run: |
-          VERSION="${GITHUB_REF_NAME#v}"
-          sed -i '' "s/public let avieToolVersion = .*/public let avieToolVersion = \"$VERSION\"/" Sources/AvieCore/Version.swift
 
       - name: Build release binary
         run: swift build -c release --disable-sandbox
 
-      # NEW: Zip the compiled binary into a tarball
-      - name: Package binary
-        run: tar -czf avie.tar.gz -C .build/release avie
-
       - name: Create GitHub Release
+        id: create_release
         uses: softprops/action-gh-release@v2
         with:
-          files: avie.tar.gz  
+          files: .build/release/avie
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Calculate Hash
+        id: get_hash
+        run: |
+          # Calculate hash of the binary we just built
+          echo "sha=$(shasum -a 256 .build/release/avie | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+  update-tap:
+    needs: build-and-release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Update Homebrew Formula
+        uses: mislav/bump-homebrew-formula-action@v3
+        with:
+          # The full name of your tap repository
+          formula-name: avie
+          homebrew-tap: shrudge/homebrew-tap
+          base-branch: main
+          download-url: https://github.com/shrudge/avie/releases/download/${{ github.ref_name }}/avie.tar.gz
+          commit-message: "feat: release ${{ github.ref_name }}"
+        env:
+          COMMITTER_TOKEN: ${{ secrets.TAP_GITHUB_TOKEN }}
