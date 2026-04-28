@@ -76,7 +76,7 @@ public struct SARIFFormatter: OutputFormatter {
         // Wrap new findings in a dummy result for SARIF formatting
         let rootID = PackageIdentity("diff")
         let rootPkg = ResolvedPackage(id: rootID, url: "", version: "0.0.0", name: "diff", directDependencies: [], isRoot: true, containsBinaryTarget: false)
-        let dummyGraph = try! DependencyGraph(packages: [rootID: rootPkg])
+        let dummyGraph = try DependencyGraph(packages: [rootID: rootPkg])
         let result = RuleEngine.AnalysisResult(
             findings: diff.newFindings,
             graph: dummyGraph,
