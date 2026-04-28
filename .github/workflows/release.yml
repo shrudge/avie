@@ -15,6 +15,11 @@ jobs:
       hash: ${{ steps.get_hash.outputs.sha }}
     steps:
       - uses: actions/checkout@v4
+      - name: Inject Version
+        run: |
+          # Strip the 'v' from v1.0.4 to get just 1.0.4
+          CLEAN_VERSION=$(echo "${{ github.ref_name }}" | sed 's/^v//')
+          echo "public let avieToolVersion = \"$CLEAN_VERSION\"" > Sources/AvieCore/Version.swift
 
       - name: Build release binary
         run: swift build -c release --disable-sandbox
@@ -37,6 +42,8 @@ jobs:
         id: get_hash
         run: |
           echo "sha=$(shasum -a 256 avie.tar.gz | awk '{print $1}')" >> $GITHUB_OUTPUT
+
+      
 
   update-tap:
     needs: build-and-release
