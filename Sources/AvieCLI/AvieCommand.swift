@@ -1,17 +1,18 @@
 import ArgumentParser
+import AvieCore
 
 @main
 struct Avie: ParsableCommand {
     static let configuration = CommandConfiguration(
         commandName: "avie",
         abstract: "Swift package graph diagnostics tool.",
-        version: "1.0.0",
+        version: avieToolVersion,
         subcommands: [
-            AuditCommand.self, 
-            SuppressCommand.self, 
+            AuditCommand.self,
+            SuppressCommand.self,
             ExplainCommand.self,
             SnapshotCommand.self,
-            DiffCommand.self
+            DiffCommand.self,
         ],
         defaultSubcommand: AuditCommand.self
     )

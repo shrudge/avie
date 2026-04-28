@@ -15,13 +15,11 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0   # CRITICAL: Required to checkout the base branch for diffing
 
       - name: Install Avie
-        run: |
-          # TODO: replace with your Homebrew tap once the tap is live
-          # brew install <your-tap>/avie
-          swift build -c release --package-path $GITHUB_WORKSPACE
-          echo "$GITHUB_WORKSPACE/.build/release" >> $GITHUB_PATH
+        run: brew install shrudge/tap/avie
 
       # Capture base branch snapshot
       - name: Snapshot base branch

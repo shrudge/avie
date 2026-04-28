@@ -14,7 +14,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # This reads the Git tag (e.g., v1.0.2), strips the 'v', and injects it into your code
       - name: Inject Version String
         run: |
           VERSION="${GITHUB_REF_NAME#v}"
@@ -23,10 +22,14 @@ jobs:
       - name: Build release binary
         run: swift build -c release --disable-sandbox
 
+      # NEW: Zip the compiled binary into a tarball
+      - name: Package binary
+        run: tar -czf avie.tar.gz -C .build/release avie
+
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          files: .build/release/avie
+          files: avie.tar.gz  
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
