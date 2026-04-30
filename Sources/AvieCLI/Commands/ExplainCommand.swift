@@ -35,7 +35,7 @@ struct ExplainCommand: ParsableCommand {
             throw ExitCode.failure // Consider failure? Or 0. We'll use failure so scripts can detect.
         }
 
-        let paths = traversal.allPaths(from: graph.rootIdentity, to: targetPackageID, maxPaths: 10)
+        let paths = traversal.findPaths(from: graph.rootIdentity, to: targetPackageID, maxPaths: 10)
 
         print("Package: \(targetPkg.name)")
         print("Version: \(targetPkg.version)")

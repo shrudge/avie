@@ -46,13 +46,30 @@ public struct BinaryTargetDetector {
         let lock = NSLock()
         var result = Set<PackageIdentity>()
         
+        if !pathsArray.isEmpty {
+            fputs("Checking \(pathsArray.count) dependencies for binary targets...\n", stderr)
+        }
+
+        var completedCount = 0
+        let progressLock = NSLock()
+
         DispatchQueue.concurrentPerform(iterations: pathsArray.count) { index in
             let path = pathsArray[index]
-            if hasBinaryTarget(at: path, swiftExecutable: swiftExecutable) {
-                guard let identity = packageMap[path] else { return }
+            let identity = packageMap[path]!
+
+            if hasBinaryTarget(at: path, identity: identity, swiftExecutable: swiftExecutable) {
                 lock.lock()
                 result.insert(identity)
                 lock.unlock()
+            }
+
+            progressLock.lock()
+            completedCount += 1
+            let current = completedCount
+            progressLock.unlock()
+
+            if current % 10 == 0 || current == pathsArray.count {
+                fputs("  [\(current)/\(pathsArray.count)] packages checked...\n", stderr)
             }
         }
         return result
@@ -60,38 +77,60 @@ public struct BinaryTargetDetector {
 
     /// Runs `swift package dump-package` in the given directory and checks
     /// whether any declared target has type "binary".
-    private static func hasBinaryTarget(at packagePath: String, swiftExecutable: String) -> Bool {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: swiftExecutable)
-        // ADDED: --disable-automatic-resolution
-        process.arguments = ["package", "--disable-automatic-resolution", "dump-package"]
-        process.currentDirectoryURL = URL(fileURLWithPath: packagePath)
+    /// Includes 3-attempt retry logic for transient failures.
+    private static func hasBinaryTarget(
+        at packagePath: String,
+        identity: PackageIdentity,
+        swiftExecutable: String
+    ) -> Bool {
+        let maxAttempts = 3
+        var lastError: String?
 
-        let stdoutPipe = Pipe()
-        let stderrPipe = Pipe()
-        process.standardOutput = stdoutPipe
-        process.standardError = stderrPipe
+        for attempt in 1...maxAttempts {
+            let process = Process()
+            process.executableURL = URL(fileURLWithPath: swiftExecutable)
+            process.arguments = ["package", "--disable-automatic-resolution", "dump-package"]
+            process.currentDirectoryURL = URL(fileURLWithPath: packagePath)
 
-        let data: Data
-        do {
-            try process.run()
-            // Drain pipe BEFORE waiting
-            data = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
-            process.waitUntilExit()
-        } catch {
-            return false
+            let stdoutPipe = Pipe()
+            let stderrPipe = Pipe()
+            process.standardOutput = stdoutPipe
+            process.standardError = stderrPipe
+
+            do {
+                try process.run()
+                let data = stdoutPipe.fileHandleForReading.readDataToEndOfFile()
+                let errData = stderrPipe.fileHandleForReading.readDataToEndOfFile()
+                process.waitUntilExit()
+
+                if process.terminationStatus == 0 {
+                    guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                          let targets = json["targets"] as? [[String: Any]] else {
+                        return false
+                    }
+                    return targets.contains { target in
+                        (target["type"] as? String) == "binary"
+                    }
+                } else {
+                    lastError = String(data: errData, encoding: .utf8) ?? "Unknown error"
+                    if attempt < maxAttempts {
+                        Thread.sleep(forTimeInterval: 0.5 * Double(attempt)) // Exponential backoff
+                        continue
+                    }
+                }
+            } catch {
+                lastError = error.localizedDescription
+                if attempt < maxAttempts {
+                    Thread.sleep(forTimeInterval: 0.5 * Double(attempt))
+                    continue
+                }
+            }
         }
 
-        guard process.terminationStatus == 0 else { return false }
-
-        guard let json = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
-              let targets = json["targets"] as? [[String: Any]] else {
-            return false
+        if let error = lastError {
+            fputs("warning: Failed to check for binary targets in '\(identity.value)' at \(packagePath) after \(maxAttempts) attempts: \(error)\n", stderr)
         }
-
-        return targets.contains { target in
-            (target["type"] as? String) == "binary"
-        }
+        return false
     }
 
     /// Derives PackageIdentity from a URL string (last path component, strip .git,

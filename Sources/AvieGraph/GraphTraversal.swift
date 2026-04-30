@@ -12,12 +12,13 @@ public class GraphTraversal {
 
     public func reachablePackages(from start: PackageIdentity) -> Set<PackageIdentity> {
         cacheLock.lock()
-        if let cached = reachableCache[start] { 
+        if let cached = reachableCache[start] {
             cacheLock.unlock()
-            return cached 
+            return cached
         }
         cacheLock.unlock()
         
+        // Compute outside of lock to avoid blocking other threads
         var visited = Set<PackageIdentity>()
         var queue = [start]
 
@@ -30,7 +31,12 @@ public class GraphTraversal {
             queue.append(contentsOf: neighbors.filter { !visited.contains($0) })
         }
 
+        // Double-checked locking: check cache again in case another thread computed it
         cacheLock.lock()
+        if let alreadyCached = reachableCache[start] {
+            cacheLock.unlock()
+            return alreadyCached
+        }
         reachableCache[start] = visited
         cacheLock.unlock()
         
@@ -44,19 +50,31 @@ public class GraphTraversal {
         if start == target { return [start] }
 
         var visited = Set<PackageIdentity>()
-        var queue: [[PackageIdentity]] = [[start]]
+        var queue: [PackageIdentity] = [start]
+        var parent: [PackageIdentity: PackageIdentity] = [:]
+        visited.insert(start)
 
         while !queue.isEmpty {
-            let path = queue.removeFirst()
-            let current = path.last!
-
-            guard !visited.contains(current) else { continue }
-            visited.insert(current)
+            let current = queue.removeFirst()
 
             for neighbor in graph.adjacency[current] ?? [] {
-                let newPath = path + [neighbor]
-                if neighbor == target { return newPath }
-                queue.append(newPath)
+                if !visited.contains(neighbor) {
+                    visited.insert(neighbor)
+                    parent[neighbor] = current
+                    queue.append(neighbor)
+                    
+                    if neighbor == target {
+                        // Reconstruct path from target to start
+                        var path = [target]
+                        var currentNode = target
+                        while let parentNode = parent[currentNode], parentNode != start {
+                            path.append(parentNode)
+                            currentNode = parentNode
+                        }
+                        path.append(start)
+                        return path.reversed()
+                    }
+                }
             }
         }
 
@@ -72,22 +90,34 @@ public class GraphTraversal {
     }
 
     public func maximumDepth(from start: PackageIdentity) -> Int {
-        func dfs(_ node: PackageIdentity, _ visited: inout Set<PackageIdentity>) -> Int {
-            if visited.contains(node) { return 0 }
-            visited.insert(node)
-            let childDepths = (graph.adjacency[node] ?? []).map { child -> Int in
-                var v = visited
-                return 1 + dfs(child, &v)
-            }
-            return childDepths.max() ?? 0
-        }
         var visited = Set<PackageIdentity>()
-        return dfs(start, &visited)
+        return dfs(start, visited: &visited)
+    }
+    
+    private func dfs(_ node: PackageIdentity, visited: inout Set<PackageIdentity>) -> Int {
+        if visited.contains(node) { return 0 }
+        visited.insert(node)
+        
+        let neighbors = graph.adjacency[node] ?? []
+        if neighbors.isEmpty {
+            return 0 // Leaf node has depth 0
+        }
+        
+        var maxChildDepth = 0
+        for neighbor in neighbors {
+            if !visited.contains(neighbor) {
+                let childDepth = dfs(neighbor, visited: &visited)
+                maxChildDepth = max(maxChildDepth, childDepth)
+            }
+        }
+        
+        return 1 + maxChildDepth
     }
 
     /// Bug 8 fix: sort initial queue by PackageIdentity.value (String) for deterministic output.
     /// The previous sort used $0.value < $1.value on the dict tuple where value was Int (in-degree),
     /// but all entries at this point have value == 0 — making it a no-op that produced random order.
+    /// Now we sort by package identity string for consistent, deterministic topological ordering.
     public func topologicalSort() -> [PackageIdentity] {
         var inDegree: [PackageIdentity: Int] = [:]
         for id in graph.packages.keys { inDegree[id] = 0 }
@@ -120,33 +150,40 @@ public class GraphTraversal {
         return result
     }
 
-    public func allPaths(
+    /// Finds multiple paths from start to target, preferentially finding shorter paths first (BFS).
+    /// - Parameters:
+    ///   - start: Starting package identity
+    ///   - target: Target package identity
+    ///   - maxPaths: Maximum number of paths to return
+    /// - Returns: An array of paths, where each path is an array of identities.
+    public func findPaths(
         from start: PackageIdentity,
         to target: PackageIdentity,
         maxPaths: Int = 10
     ) -> [[PackageIdentity]] {
         var results: [[PackageIdentity]] = []
-        var currentPath: [PackageIdentity] = [start]
-        var visited = Set<PackageIdentity>()
-
-        func dfs(_ node: PackageIdentity) {
-            if results.count >= maxPaths { return }
-            if node == target {
-                results.append(currentPath)
-                return
+        
+        // (currentNode, pathSoFar)
+        var queue: [(PackageIdentity, [PackageIdentity])] = [(start, [start])]
+        
+        while !queue.isEmpty && results.count < maxPaths {
+            let (current, path) = queue.removeFirst()
+            
+            if current == target {
+                results.append(path)
+                continue
             }
-            visited.insert(node)
-            for neighbor in graph.adjacency[node] ?? [] {
-                if !visited.contains(neighbor) {
-                    currentPath.append(neighbor)
-                    dfs(neighbor)
-                    currentPath.removeLast()
+            
+            for neighbor in graph.adjacency[current] ?? [] {
+                // Avoid cycles in the current path
+                if !path.contains(neighbor) {
+                    var newPath = path
+                    newPath.append(neighbor)
+                    queue.append((neighbor, newPath))
                 }
             }
-            visited.remove(node)
         }
-
-        dfs(start)
+        
         return results
     }
 }

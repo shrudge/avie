@@ -107,11 +107,11 @@ final class AvieGraphTests: XCTestCase {
         XCTAssertEqual(path, [PackageIdentity("a")])
     }
 
-    func testAllPathsFindsAllRoutes() throws {
+    func testFindPathsFindsAllRoutes() throws {
         let graph = try makeGraph()
         let traversal = GraphTraversal(graph: graph)
 
-        let paths = traversal.allPaths(from: PackageIdentity("a"), to: PackageIdentity("d"))
+        let paths = traversal.findPaths(from: PackageIdentity("a"), to: PackageIdentity("d"))
         // A -> B -> D and A -> C -> D
         XCTAssertEqual(paths.count, 2)
 
@@ -125,7 +125,7 @@ final class AvieGraphTests: XCTestCase {
         let traversal = GraphTraversal(graph: graph)
 
         let depth = traversal.maximumDepth(from: PackageIdentity("a"))
-        XCTAssertEqual(depth, 2) // A -> B/C -> D/E
+        XCTAssertEqual(depth, 2) // A -> C -> E (2 edges)
     }
 
     func testTransitiveDependenciesExcludesSelf() throws {

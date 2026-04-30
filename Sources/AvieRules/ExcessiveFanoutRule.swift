@@ -1,6 +1,19 @@
 import AvieCore
 import AvieGraph
 
+/// Warns when a direct dependency introduces too many transitive dependencies.
+///
+/// The threshold is applied to the **unique set of transitive packages** reachable
+/// from the direct dependency, excluding the direct dependency itself.
+///
+/// For example, if Package A depends on Package B and Package C, and both B and C
+/// depend on Package D:
+/// - Direct dependencies: B, C
+/// - Transitive dependencies of A (via B/C): D
+/// - Total count for A: 1 (Package D)
+///
+/// This rule helps identify "heavy" dependencies that might bloat the graph
+/// and increase resolution time.
 public struct ExcessiveFanoutRule: Rule {
     public let id = RuleID.excessiveFanout
     public let severity = Finding.Severity.warning

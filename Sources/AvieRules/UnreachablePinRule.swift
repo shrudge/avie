@@ -14,11 +14,15 @@ public struct UnreachablePinRule: Rule {
         traversal: GraphTraversal,
         context: RuleContext
     ) throws -> [Finding] {
-        guard let targets = context.targets else { return [] }
-
+        // This rule doesn't require target information - it checks reachability from root
         var targetDeps = Set<PackageIdentity>()
-        for target in targets {
-            targetDeps.formUnion(target.packageDependencies)
+        if let targets = context.targets {
+            for target in targets {
+                targetDeps.formUnion(target.packageDependencies)
+            }
+        } else {
+            // Fallback: consider all direct dependencies of root as production dependencies
+            targetDeps = Set(graph.adjacency[graph.rootIdentity] ?? [])
         }
 
         var reachable = Set<PackageIdentity>()

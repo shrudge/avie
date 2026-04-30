@@ -7,16 +7,19 @@ public struct RuleEngine {
     public let traversal: GraphTraversal
     public let config: AvieConfiguration
     public let targets: [TargetDeclaration]?
+    public let suppressions: Set<String>
 
     public init(
         graph: DependencyGraph,
         config: AvieConfiguration,
-        targets: [TargetDeclaration]? = nil
+        targets: [TargetDeclaration]? = nil,
+        suppressions: Set<String> = []
     ) {
         self.graph = graph
         self.traversal = GraphTraversal(graph: graph)
         self.config = config
         self.targets = targets
+        self.suppressions = suppressions
     }
 
     public struct AnalysisResult {
@@ -55,7 +58,7 @@ public struct RuleEngine {
         let context = RuleContext(
             configuration: config,
             targets: targets,
-            suppressions: [] 
+            suppressions: suppressions
         )
 
         var allFindings: [Finding] = []
@@ -79,8 +82,11 @@ public struct RuleEngine {
         let depth = traversal.maximumDepth(from: graph.rootIdentity)
         let directDeps = (graph.adjacency[graph.rootIdentity] ?? []).count
 
+        // Filter out suppressed findings
+        let filteredFindings = allFindings.filter { !suppressions.contains($0.suppressionKey) }
+
         return AnalysisResult(
-            findings: allFindings,
+            findings: filteredFindings,
             executedRules: executed,
             skippedRules: skipped,
             graph: graph,

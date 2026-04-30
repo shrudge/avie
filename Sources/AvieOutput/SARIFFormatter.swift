@@ -14,7 +14,14 @@ public struct SARIFFormatter: OutputFormatter {
     public init() {}
 
     public func format(_ result: RuleEngine.AnalysisResult) throws -> String {
-        let findings = result.findings
+        return try formatFindings(result.findings)
+    }
+
+    public func format(_ diff: DiffEngine.DiffResult) throws -> String {
+        return try formatFindings(diff.newFindings)
+    }
+    
+    private func formatFindings(_ findings: [Finding]) throws -> String {
         let results = findings.map { finding -> [String: Any] in
             let level: String
             switch finding.severity {
@@ -72,28 +79,5 @@ public struct SARIFFormatter: OutputFormatter {
         let data = try JSONSerialization.data(
             withJSONObject: sarif, options: [.prettyPrinted, .sortedKeys])
         return String(data: data, encoding: .utf8) ?? "{}"
-    }
-
-    public func format(_ diff: DiffEngine.DiffResult) throws -> String {
-        // Wrap new findings in a dummy result for SARIF formatting
-        let rootID = PackageIdentity("diff")
-        let rootPkg = ResolvedPackage(
-            id: rootID, url: "", version: "0.0.0", name: "diff", directDependencies: [],
-            isRoot: true, containsBinaryTarget: false)
-        let dummyGraph = try DependencyGraph(packages: [rootID: rootPkg])
-        let result = RuleEngine.AnalysisResult(
-            findings: diff.newFindings,
-            executedRules: [],
-            skippedRules: [:],
-            graph: dummyGraph,
-            metadata: .init(
-                totalPackages: 0,
-                directDependencies: 0,
-                transitiveDepth: 0,
-                analysisDate: Date(),
-                packageDirectory: ""
-            )
-        )
-        return try format(result)
     }
 }

@@ -16,6 +16,20 @@ import AvieCore
 ///
 /// The previous model used struct keys that only matched one variant.
 /// The new model handles all three variants via custom Codable decoding.
+    public enum ManifestError: Error, LocalizedError {
+        case dumpPackageFailed(String)
+        case decodeFailed(Error)
+
+        public var errorDescription: String? {
+            switch self {
+            case .dumpPackageFailed(let stderr):
+                return "swift package dump-package failed:\n\(stderr)"
+            case .decodeFailed(let error):
+                return "Failed to decode package manifest: \(error.localizedDescription)"
+            }
+        }
+    }
+
 public final class ManifestReader {
     private let packageDirectory: URL
     private let isCI: Bool
@@ -132,10 +146,13 @@ public final class ManifestReader {
 
         guard process.terminationStatus == 0 else {
             let err = String(data: stderrData, encoding: .utf8) ?? ""
-            throw NSError(domain: "AvieResolver", code: 1,
-                          userInfo: [NSLocalizedDescriptionKey: "dump-package failed: \(err)"])
+            throw ManifestError.dumpPackageFailed(err)
         }
 
-        return try JSONDecoder().decode(ManifestData.self, from: data)
+        do {
+            return try JSONDecoder().decode(ManifestData.self, from: data)
+        } catch {
+            throw ManifestError.decodeFailed(error)
+        }
     }
 }

@@ -18,7 +18,7 @@ struct SuppressCommand: ParsableCommand {
         commandName: "suppress",
         abstract: "Add a suppression for a specific finding.",
         discussion: """
-            Key format: RULEIO:package-identity
+            Key format: RULE_ID:package-identity
             Example: avie suppress AVIE003:grdb --reason "GRDB fanout is expected and reviewed."
             
             Keys are stored in avie-suppress.json and are stable across graph changes.

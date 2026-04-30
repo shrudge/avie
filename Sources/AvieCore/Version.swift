@@ -1,1 +1,1 @@
-public let avieToolVersion = "1.0.0"
+public let avieToolVersion = "1.0.5"

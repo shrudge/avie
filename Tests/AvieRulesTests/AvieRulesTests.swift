@@ -7,8 +7,8 @@ import XCTest
 final class AvieRulesTests: XCTestCase {
     
     private func resolveFixture(named name: String) throws -> (DependencyGraph, GraphTraversal) {
-        let currentDir = URL(fileURLWithPath: #file).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let fixturePath = currentDir.appendingPathComponent("Fixtures/\(name)")
+        let currentDir = URL(fileURLWithPath: #file).deletingLastPathComponent().deletingLastPathComponent()
+        let fixturePath = currentDir.appendingPathComponent("AvieResolverTests/Fixtures/\(name)")
         let resolver = SPMResolver(packageDirectory: fixturePath)
         let spmOutput = try resolver.resolve()
         // Bug 5 fix: URL-derived identity; no binary targets in test fixtures
@@ -19,8 +19,8 @@ final class AvieRulesTests: XCTestCase {
     }
 
     private func getManifest(named name: String) throws -> ManifestReader.ManifestData {
-        let currentDir = URL(fileURLWithPath: #file).deletingLastPathComponent().deletingLastPathComponent().deletingLastPathComponent()
-        let fixturePath = currentDir.appendingPathComponent("Fixtures/\(name)")
+        let currentDir = URL(fileURLWithPath: #file).deletingLastPathComponent().deletingLastPathComponent()
+        let fixturePath = currentDir.appendingPathComponent("AvieResolverTests/Fixtures/\(name)")
         let reader = ManifestReader(packageDirectory: fixturePath)
         return try reader.read()
     }

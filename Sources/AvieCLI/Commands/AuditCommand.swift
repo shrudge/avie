@@ -75,6 +75,11 @@ struct AuditCommand: ParsableCommand {
 
         let manifestReader = ManifestReader(packageDirectory: packageURL, isCI: ci)
         let manifestData = try? manifestReader.read()
+        
+        // Log warning if manifest reading failed
+        if manifestData == nil {
+            fputs("warning: Failed to read Package.swift manifest. Some rules will be skipped.\n", stderr)
+        }
 
         // Exit 3 — configuration error
         let config: AvieConfiguration
@@ -87,10 +92,14 @@ struct AuditCommand: ParsableCommand {
 
         let targets = manifestData.map { buildTargets(from: $0, rootIdentity: graph.rootIdentity) }
 
-        let engine = RuleEngine(graph: graph, config: config, targets: targets)
+        // Load suppressions and pass to RuleContext
+        let suppressionFile = (try? SuppressionFile.load(from: packageURL)) ?? SuppressionFile()
+        let suppressionKeys = Set(suppressionFile.suppressions.map(\.key))
+
+        let engine = RuleEngine(graph: graph, config: config, targets: targets, suppressions: suppressionKeys)
         let analysisResult = try engine.execute()
         
-        let suppressionFile = (try? SuppressionFile.load(from: packageURL)) ?? SuppressionFile()
+        // Apply suppressions (should already be filtered by engine, but apply again for safety)
         let filteredFindings = applySuppression(analysisResult.findings, suppressions: suppressionFile)
         
         // Rebuild the result with filtered findings
