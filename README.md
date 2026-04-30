@@ -2,21 +2,9 @@
 
 # Avie -->
 
-<table>
-  <tr>
-    <td style="width:160px; padding:0; background:transparent; vertical-align:top;">
-      <div style="
-        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
-        border-radius: 8px; /* Must match your logo's corner radius */
-        background: transparent;
-        width: 150px;
-        height: 150px; /* Must match the height to maintain the square */
-        display: block;
-      ">
-        <img src="avie.png" width="150" style="display:block; border-radius:inherit; outline:none; border:none;">
-      </div>
-    </td>
-    <td style="background:transparent; vertical-align:top;">
+<div align="left" style="display: flex; align-items: flex-start; gap: 20px;">
+  <img src="avie.png" width="150" style="flex-shrink: 0;">
+  <div>
 
 # Avie
 
@@ -26,9 +14,10 @@
 [![Platform macOS 13+](https://img.shields.io/badge/Platform-macOS%2013%2B-lightgrey?style=flat)](https://developer.apple.com/macos)
 [![License MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
 
-</td>
-  </tr>
-</table>
+  </div>
+</div>
+
+<br clear="left"/>
 
 
 Avie is a **Swift Package Manager dependency graph audit tool** for iOS and macOS teams. It surfaces structural problems in your `Package.swift` dependency graph — unreachable pins, test dependency leakage, excessive transitive fan-out, and binary target introductions — with findings that are provable from graph mathematics, not guesswork.
