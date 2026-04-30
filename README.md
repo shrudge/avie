@@ -1,3 +1,14 @@
+<!-- <img src="avie.png" align="left" width="150" hspace="20" vspace="10">
+
+# Avie -->
+
+<table>
+  <tr>
+    <td width="160">
+      <img src="avie.png" width="150">
+    </td>
+    <td>
+
 # Avie
 
 **Swift package graph diagnostics. Graph-provable findings. CI-native.**
@@ -5,6 +16,11 @@
 [![Swift 5.9](https://img.shields.io/badge/Swift-5.9+-F05138?style=flat&logo=swift&logoColor=white)](https://swift.org)
 [![Platform macOS 13+](https://img.shields.io/badge/Platform-macOS%2013%2B-lightgrey?style=flat)](https://developer.apple.com/macos)
 [![License MIT](https://img.shields.io/badge/License-MIT-blue?style=flat)](LICENSE)
+
+</td>
+  </tr>
+</table>
+
 
 Avie is a **Swift Package Manager dependency graph audit tool** for iOS and macOS teams. It surfaces structural problems in your `Package.swift` dependency graph — unreachable pins, test dependency leakage, excessive transitive fan-out, and binary target introductions — with findings that are provable from graph mathematics, not guesswork.
 
@@ -608,4 +624,4 @@ MIT — see [LICENSE](LICENSE).
 
 ---
 
-*Avie v1.0.0 — graph-provable findings for Swift package graphs.*
+*Avie v1.0.6 — graph-provable findings for Swift package graphs.*
