@@ -4,10 +4,19 @@
 
 <table>
   <tr>
-    <td width="160">
-      <img src="avie.png" width="150">
+    <td style="width:160px; padding:0; background:transparent; vertical-align:top;">
+      <div style="
+        box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        border-radius: 8px; /* Must match your logo's corner radius */
+        background: transparent;
+        width: 150px;
+        height: 150px; /* Must match the height to maintain the square */
+        display: block;
+      ">
+        <img src="avie.png" width="150" style="display:block; border-radius:inherit; outline:none; border:none;">
+      </div>
     </td>
-    <td>
+    <td style="background:transparent; vertical-align:top;">
 
 # Avie
 
